@@ -1,0 +1,10 @@
+@import './base.css';
+
+#app {
+  min-height: 100vh;
+}
+
+body {
+  margin: 0;
+  background: #f0f2f5;
+}

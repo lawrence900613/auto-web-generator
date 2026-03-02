@@ -1,0 +1,20 @@
+package com.example.autowebgenerator.common;
+
+import java.io.Serial;
+import java.io.Serializable;
+
+public class DeleteByIdRequest implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    private Long id;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+}

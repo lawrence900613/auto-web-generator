@@ -1,3 +1,18 @@
 spring:
   application:
     name: auto-web-generator
+
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+
+springdoc:
+  group-configs:
+    - group: 'default'
+      packages-to-scan: com.example.autowebgenerator.controller
+
+knife4j:
+  enable: true
+  setting:
+    language: en
