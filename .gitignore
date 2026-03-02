@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Secrets — never commit these ###
+.env
+*.env
+application-local.yaml
+application-local.yml
+application-local.properties

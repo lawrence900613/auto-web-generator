@@ -58,6 +58,41 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- LangChain4j Core -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
+        <!-- LangChain4j OpenAI (ChatGPT) Integration -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
+        <!-- LangChain4j Reactor — enables Flux<String> return type on AI service methods -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-reactor</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
+        <!-- Reactor Core — required for Flux<String> in Spring MVC (not pulled in by webmvc) -->
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+        </dependency>
+
+        <!-- Lombok for boilerplate reduction -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.36</version>
+            <optional>true</optional>
+        </dependency>
+
     </dependencies>
 
     <build>

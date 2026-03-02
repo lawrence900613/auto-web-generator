@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Finance Dashboard</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .summary {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .category {
+            background-color: #2e2e2e;
+            padding: 15px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+        }
+        .progress-bar {
+            position: relative;
+            height: 20px;
+            border-radius: 10px;
+            background-color: #444;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        .progress {
+            height: 100%;
+            border-radius: 10px 0 0 10px;
+            text-align: center;
+            line-height: 20px;
+            color: #fff;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #444;
+            text-align: left;
+        }
+        th {
+            background-color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Personal Finance Dashboard</h1>
+    <div class="container">
+        <div class="summary">
+            <div>Total Spent: $<span id="total-spent">0</span></div>
+            <div>Remaining Balance: $<span id="remaining-balance">1000</span></div>
+        </div>
+
+        <div class="category" id="food-category">
+            <h2>Food</h2>
+            <input type="number" id="food-input" placeholder="Enter amount" />
+            <button onclick="addExpense('food')">Add Expense</button>
+            <div class="progress-bar"><div class="progress" id="food-progress" style="width: 0%; background-color: green">0%</div></div>
+        </div>
+
+        <div class="category" id="rent-category">
+            <h2>Rent</h2>
+            <input type="number" id="rent-input" placeholder="Enter amount" />
+            <button onclick="addExpense('rent')">Add Expense</button>
+            <div class="progress-bar"><div class="progress" id="rent-progress" style="width: 0%; background-color: green">0%</div></div>
+        </div>
+
+        <div class="category" id="transport-category">
+            <h2>Transport</h2>
+            <input type="number" id="transport-input" placeholder="Enter amount" />
+            <button onclick="addExpense('transport')">Add Expense</button>
+            <div class="progress-bar"><div class="progress" id="transport-progress" style="width: 0%; background-color: green">0%</div></div>
+        </div>
+
+        <div class="category" id="entertainment-category">
+            <h2>Entertainment</h2>
+            <input type="number" id="entertainment-input" placeholder="Enter amount" />
+            <button onclick="addExpense('entertainment')">Add Expense</button>
+            <div class="progress-bar"><div class="progress" id="entertainment-progress" style="width: 0%; background-color: green">0%</div></div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody id="transaction-history"></tbody>
+        </table>
+    </div>
+
+    <script>
+        let budget = { food: 300, rent: 400, transport: 100, entertainment: 200 };
+        let spent = { food: 0, rent: 0, transport: 0, entertainment: 0 };
+
+        function updateSummary() {
+            let totalSpent = Object.values(spent).reduce((a, b) => a + b, 0);
+            document.getElementById('total-spent').innerText = totalSpent;
+            document.getElementById('remaining-balance').innerText = (1000 - totalSpent) < 0 ? 0 : 1000 - totalSpent;
+        }
+
+        function updateProgress(category) {
+            let progressElement = document.getElementById(category + '-progress');
+            let progress = (spent[category] / budget[category]) * 100;
+            progress = progress > 100 ? 100 : progress;
+            progressElement.style.width = progress + '%';
+            progressElement.innerText = Math.round(progress) + '%';
+            progressElement.style.backgroundColor = progress > 100 ? 'red' : 'green';
+        }
+
+        function addExpense(category) {
+            let inputElement = document.getElementById(category + '-input');
+            let amount = parseFloat(inputElement.value);
+            if (!isNaN(amount) && amount > 0) {
+                spent[category] += amount;
+                updateProgress(category);
+                updateSummary();
+                inputElement.value = '';
+                document.getElementById('transaction-history').innerHTML += `<tr><td>${category}</td><td>${amount}</td></tr>`;
+            } else {
+                alert('Please enter a valid amount.');
+            }
+        }
+    </script>
+</body>
+</html>

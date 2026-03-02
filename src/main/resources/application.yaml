@@ -1,6 +1,8 @@
 spring:
   application:
     name: auto-web-generator
+  profiles:
+    active: local   # loads application-local.yaml — keep secrets there, never here
 
 server:
   port: 8123
@@ -16,3 +18,12 @@ knife4j:
   enable: true
   setting:
     language: en
+
+# OpenAI (ChatGPT) Configuration
+# Set OPENAI_API_KEY environment variable or replace the default value below
+openai:
+  api-key: ${OPENAI_API_KEY:your-openai-api-key-here}
+  model: gpt-5-mini       # Cost-effective model for development
+  max-tokens: 8192
+  log-requests: true         # Log outgoing AI requests (disable in production)
+  log-responses: true        # Log incoming AI responses (disable in production)
