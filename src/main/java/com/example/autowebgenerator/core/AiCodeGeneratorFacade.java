@@ -14,28 +14,6 @@ import reactor.core.publisher.Flux;
 
 import java.io.File;
 
-/**
- * Facade (entry point) for all AI code generation operations.
- *
- * Two generation modes are supported:
- *
- *   generateAndSave(...)           — synchronous, structured JSON output
- *   generateAndSaveCodeStream(...) — Flux streaming, markdown parsing on completion
- *
- * Flow diagram:
- *
- *   [Client]
- *      ↓
- *   AiCodeGeneratorFacade
- *      ├─ sync   → AiCodeGeneratorService.generateXxx()       → CodeFileSaver.saveXxx()
- *      └─ stream → AiCodeGeneratorService.generateXxxStream() (Flux<String>)
- *                      ↓ tokens via doOnNext
- *                  StringBuilder accumulates
- *                      ↓ doOnComplete
- *                  CodeParser.parseXxx()
- *                      ↓
- *                  CodeFileSaver.saveXxx()
- */
 @Service
 public class AiCodeGeneratorFacade {
 
@@ -44,75 +22,81 @@ public class AiCodeGeneratorFacade {
     @Resource
     private AiCodeGeneratorService aiCodeGeneratorService;
 
-    // =========================================================================
+    // -------------------------------------------------------------------------
     // Synchronous generation
-    // =========================================================================
+    // -------------------------------------------------------------------------
 
     public File generateAndSave(String userMessage, CodeGenTypeEnum type) {
         return switch (type) {
             case HTML -> {
                 HtmlCodeResult result = aiCodeGeneratorService.generateHtmlCode(userMessage);
-                log.info("HTML generation complete: {}", result);
                 yield CodeFileSaver.saveHtmlCode(result);
             }
             case MULTI_FILE -> {
                 MultiFileCodeResult result = aiCodeGeneratorService.generateMultiFileCode(userMessage);
-                log.info("Multi-file generation complete: {}", result);
                 yield CodeFileSaver.saveMultiFileCode(result);
             }
         };
     }
 
-    // =========================================================================
-    // Streaming generation (Flux / SSE)
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Streaming — anonymous (no appId)
+    // -------------------------------------------------------------------------
 
-    /**
-     * Unified streaming entry point — dispatches to the correct private helper
-     * based on the generation type.
-     *
-     * Each emitted String is one token from the model. The caller (controller)
-     * can forward these directly to the HTTP response as SSE events.
-     * Files are saved automatically once the stream completes.
-     */
     public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum type) {
-        if (type == null) {
-            throw new ServiceException(ErrorCode.SYSTEM_ERROR, "type must not be null");
-        }
+        if (type == null) throw new ServiceException(ErrorCode.SYSTEM_ERROR, "type must not be null");
         return switch (type) {
-            case HTML      -> generateAndSaveHtmlCodeStream(userMessage);
-            case MULTI_FILE -> generateAndSaveMultiFileCodeStream(userMessage);
+            case HTML       -> streamHtml(userMessage, null);
+            case MULTI_FILE -> streamMultiFile(userMessage, null);
         };
     }
 
-    // =========================================================================
-    // Private streaming helpers
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Streaming — per-app (saves to tmp/code_output/{appId}/)
+    // -------------------------------------------------------------------------
 
-    private Flux<String> generateAndSaveHtmlCodeStream(String userMessage) {
-        StringBuilder codeBuilder = new StringBuilder();
+    public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum type, Long appId) {
+        if (type == null) throw new ServiceException(ErrorCode.SYSTEM_ERROR, "type must not be null");
+        return switch (type) {
+            case HTML       -> streamHtml(userMessage, appId);
+            case MULTI_FILE -> streamMultiFile(userMessage, appId);
+        };
+    }
+
+    // -------------------------------------------------------------------------
+    // Private streaming helpers
+    // -------------------------------------------------------------------------
+
+    private Flux<String> streamHtml(String userMessage, Long appId) {
+        StringBuilder buf = new StringBuilder();
         return aiCodeGeneratorService.generateHtmlCodeStream(userMessage)
-                .doOnNext(codeBuilder::append)
+                .doOnNext(buf::append)
                 .doOnComplete(() -> {
                     try {
-                        HtmlCodeResult result = CodeParser.parseHtmlCode(codeBuilder.toString());
-                        File savedDir = CodeFileSaver.saveHtmlCode(result);
-                        log.info("Stream save complete → {}", savedDir.getAbsolutePath());
+                        HtmlCodeResult result = com.example.autowebgenerator.core.CodeParser.parseHtmlCode(buf.toString());
+                        if (appId != null) {
+                            CodeFileSaver.saveHtmlCodeForApp(result, appId);
+                        } else {
+                            CodeFileSaver.saveHtmlCode(result);
+                        }
                     } catch (Exception e) {
                         log.error("Failed to save streamed HTML code", e);
                     }
                 });
     }
 
-    private Flux<String> generateAndSaveMultiFileCodeStream(String userMessage) {
-        StringBuilder codeBuilder = new StringBuilder();
+    private Flux<String> streamMultiFile(String userMessage, Long appId) {
+        StringBuilder buf = new StringBuilder();
         return aiCodeGeneratorService.generateMultiFileCodeStream(userMessage)
-                .doOnNext(codeBuilder::append)
+                .doOnNext(buf::append)
                 .doOnComplete(() -> {
                     try {
-                        MultiFileCodeResult result = CodeParser.parseMultiFileCode(codeBuilder.toString());
-                        File savedDir = CodeFileSaver.saveMultiFileCode(result);
-                        log.info("Stream save complete → {}", savedDir.getAbsolutePath());
+                        MultiFileCodeResult result = CodeParser.parseMultiFileCode(buf.toString());
+                        if (appId != null) {
+                            CodeFileSaver.saveMultiFileCodeForApp(result, appId);
+                        } else {
+                            CodeFileSaver.saveMultiFileCode(result);
+                        }
                     } catch (Exception e) {
                         log.error("Failed to save streamed multi-file code", e);
                     }

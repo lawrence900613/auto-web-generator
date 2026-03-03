@@ -9,14 +9,14 @@ const myAxios = axios.create({
 
 myAxios.interceptors.request.use(
   (config) => config,
-  (error) => Promise.reject(error),
+  (error: unknown) => Promise.reject(error),
 )
 
 myAxios.interceptors.response.use(
   (response) => {
-    const { data } = response as { data?: { code?: number } }
+    const data = response.data as { code?: number } | undefined
     if (data?.code === 40100) {
-      const responseUrl = response.request?.responseURL ?? ''
+      const responseUrl = (response.request as { responseURL?: string })?.responseURL ?? ''
       if (
         !responseUrl.includes('user/get/login') &&
         !window.location.pathname.includes('/user/login')
@@ -27,7 +27,7 @@ myAxios.interceptors.response.use(
     }
     return response
   },
-  (error) => Promise.reject(error),
+  (error: unknown) => Promise.reject(error),
 )
 
 export default myAxios

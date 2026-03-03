@@ -38,3 +38,8 @@ build/
 application-local.yaml
 application-local.yml
 application-local.properties
+claude.me
+claude.md
+/moduleSource/
+/moduleSource2/
+/tmp/

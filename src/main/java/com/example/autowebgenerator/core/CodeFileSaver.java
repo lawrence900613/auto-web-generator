@@ -13,22 +13,18 @@ import java.nio.charset.StandardCharsets;
 /**
  * Persists AI-generated code to the local file system.
  *
- * Output directory layout:
- *   {project-root}/tmp/code_output/{mode}_{snowflakeId}/
- *       index.html
- *       style.css   (multi-file mode only)
- *       script.js   (multi-file mode only)
- *
- * A Snowflake ID (via Hutool) guarantees each generation gets a unique folder,
- * so concurrent requests never overwrite each other.
+ * Directory layout:
+ *   tmp/code_output/{appId}/          — per-app generated output
+ *   tmp/code_output/{mode}_{uuid}/    — legacy anonymous output (no appId)
+ *   tmp/code_deploy/{deployKey}/      — publicly served deployed apps
  */
 public class CodeFileSaver {
 
-    /** Root directory for all generated output — relative to JVM working directory. */
     static final String OUTPUT_ROOT = System.getProperty("user.dir") + "/tmp/code_output";
+    static final String DEPLOY_ROOT = System.getProperty("user.dir") + "/tmp/code_deploy";
 
     // -------------------------------------------------------------------------
-    // Public save methods
+    // Save — anonymous (no appId)
     // -------------------------------------------------------------------------
 
     public static File saveHtmlCode(HtmlCodeResult result) {
@@ -46,10 +42,48 @@ public class CodeFileSaver {
     }
 
     // -------------------------------------------------------------------------
+    // Save — per-app (appId as directory name)
+    // -------------------------------------------------------------------------
+
+    public static File saveHtmlCodeForApp(HtmlCodeResult result, Long appId) {
+        String dir = appOutputDir(appId);
+        FileUtil.mkdir(dir);
+        write(dir, "index.html", result.getHtmlCode());
+        return new File(dir);
+    }
+
+    public static File saveMultiFileCodeForApp(MultiFileCodeResult result, Long appId) {
+        String dir = appOutputDir(appId);
+        FileUtil.mkdir(dir);
+        write(dir, "index.html", result.getHtmlCode());
+        write(dir, "style.css",  result.getCssCode());
+        write(dir, "script.js",  result.getJsCode());
+        return new File(dir);
+    }
+
+    // -------------------------------------------------------------------------
+    // Deploy — copy app output to the deploy directory
+    // -------------------------------------------------------------------------
+
+    public static void deployCodeForApp(Long appId, String deployKey) {
+        String srcDir = appOutputDir(appId);
+        String destDir = DEPLOY_ROOT + File.separator + deployKey;
+        FileUtil.mkdir(destDir);
+        FileUtil.copyContent(new File(srcDir), new File(destDir), true);
+    }
+
+    public static String getDeployUrl(String deployKey) {
+        return "/deploy/" + deployKey + "/index.html";
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
-    /** Build a path like: tmp/code_output/html_1234567890 */
+    private static String appOutputDir(Long appId) {
+        return OUTPUT_ROOT + File.separator + appId;
+    }
+
     private static String buildUniqueDir(String prefix) {
         String dirName = StrUtil.format("{}_{}", prefix, IdUtil.getSnowflakeNextIdStr());
         String path = OUTPUT_ROOT + File.separator + dirName;
@@ -57,7 +91,6 @@ public class CodeFileSaver {
         return path;
     }
 
-    /** Write content to a file, skipping null/blank content. */
     private static void write(String dir, String filename, String content) {
         if (StrUtil.isBlank(content)) return;
         FileUtil.writeString(content, dir + File.separator + filename, StandardCharsets.UTF_8);

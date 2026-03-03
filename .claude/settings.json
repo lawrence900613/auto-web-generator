@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://raw.githubusercontent.com/liyupi/yu-ai-code-mother/master/yu-ai-code-mother-frontend/src/layouts/BasicLayout.vue'' -UseBasicParsing | Select-Object -ExpandProperty Content\")",
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://raw.githubusercontent.com/liyupi/yu-ai-code-mother/master/yu-ai-code-mother-frontend/src/components/GlobalHeader.vue'' -UseBasicParsing | Select-Object -ExpandProperty Content\")",
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://raw.githubusercontent.com/liyupi/yu-ai-code-mother/master/yu-ai-code-mother-frontend/src/components/GlobalFooter.vue'' -UseBasicParsing | Select-Object -ExpandProperty Content\")",
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://raw.githubusercontent.com/liyupi/yu-ai-code-mother/master/yu-ai-code-mother-frontend/src/pages/HomePage.vue'' -UseBasicParsing | Select-Object -ExpandProperty Content\")",
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://raw.githubusercontent.com/liyupi/yu-ai-code-mother/master/yu-ai-code-mother-frontend/src/App.vue'' -UseBasicParsing | Select-Object -ExpandProperty Content\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/liyupi/yu-ai-code-mother/master/src/main/java/com/yupi/yuaicodemother/controller/UserController.java\")",
+      "Bash(gh api repos/liyupi/yu-ai-code-mother/contents/src/main/java/com/yupi/yuaicodemother/controller/UserController.java --jq '.content')",
+      "Bash(python3 -c \":*)"
+    ]
+  }
+}
