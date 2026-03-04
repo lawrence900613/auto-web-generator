@@ -4,7 +4,7 @@ import request from '@/request'
 
 /** Create an app POST /app/add */
 export async function addApp(body: API.AppAddRequest) {
-  return request<API.ApiResponseLong>('/app/add', {
+  return request<API.ApiResponseString>('/app/add', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     data: body,

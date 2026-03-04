@@ -3,7 +3,7 @@ package com.example.autowebgenerator.ai;
 import com.example.autowebgenerator.ai.model.HtmlCodeResult;
 import com.example.autowebgenerator.ai.model.MultiFileCodeResult;
 import dev.langchain4j.service.SystemMessage;
-import reactor.core.publisher.Flux;
+import dev.langchain4j.service.TokenStream;
 
 /**
  * AI code generation service — declared as a plain Java interface.
@@ -53,7 +53,7 @@ public interface AiCodeGeneratorService {
      * @return TokenStream — attach handlers with .onPartialResponse / .onCompleteResponse
      */
     @SystemMessage(fromResource = "prompt/codegen-html-system-prompt.txt")
-    Flux<String> generateHtmlCodeStream(String userMessage);
+    TokenStream generateHtmlCodeStream(String userMessage);
 
     /**
      * Generate a three-file website (streaming).
@@ -62,8 +62,8 @@ public interface AiCodeGeneratorService {
      * On completion the caller should parse the accumulated string with CodeParser.
      *
      * @param userMessage natural-language description of the desired website
-     * @return Flux<String> — each element is one token from the model
+     * @return TokenStream — converted to Flux<String> in AiCodeGeneratorFacade
      */
     @SystemMessage(fromResource = "prompt/codegen-multi-file-system-prompt.txt")
-    Flux<String> generateMultiFileCodeStream(String userMessage);
+    TokenStream generateMultiFileCodeStream(String userMessage);
 }

@@ -73,15 +73,16 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 ? sortBy.replaceAll("([A-Z])", "_$1").toLowerCase()
                 : "create_time";
         boolean isAsc = "asc".equalsIgnoreCase(sortOrder);
-        return QueryWrapper.create()
-                .eq("id", request.getId())
-                .like("app_name", request.getAppName())
-                .like("init_prompt", request.getInitPrompt())
-                .eq("code_gen_type", request.getCodeGenType())
-                .eq("deploy_key", request.getDeployKey())
-                .eq("priority", request.getPriority())
-                .eq("user_id", request.getUserId())
-                .orderBy(snakeSortBy, isAsc);
+        QueryWrapper qw = QueryWrapper.create();
+        if (request.getId() != null) qw.eq("id", request.getId());
+        if (StrUtil.isNotBlank(request.getAppName())) qw.like("app_name", request.getAppName());
+        if (StrUtil.isNotBlank(request.getInitPrompt())) qw.like("init_prompt", request.getInitPrompt());
+        if (StrUtil.isNotBlank(request.getCodeGenType())) qw.eq("code_gen_type", request.getCodeGenType());
+        if (StrUtil.isNotBlank(request.getDeployKey())) qw.eq("deploy_key", request.getDeployKey());
+        if (request.getPriority() != null) qw.eq("priority", request.getPriority());
+        if (request.getUserId() != null) qw.eq("user_id", request.getUserId());
+        qw.orderBy(snakeSortBy, isAsc);
+        return qw;
     }
 
     @Override

@@ -17,6 +17,10 @@ server:
   servlet:
     context-path: /api
 
+mybatis-flex:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
 springdoc:
   group-configs:
     - group: 'default'
@@ -29,7 +33,7 @@ knife4j:
 
 openai:
   api-key: ${OPENAI_API_KEY:your-openai-api-key-here}
-  model: gpt-5-mini
+  model: gpt-4o-mini
   max-tokens: 8192
   log-requests: true
   log-responses: true

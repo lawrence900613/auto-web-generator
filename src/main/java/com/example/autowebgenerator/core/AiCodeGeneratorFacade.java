@@ -6,6 +6,7 @@ import com.example.autowebgenerator.ai.model.MultiFileCodeResult;
 import com.example.autowebgenerator.exception.ErrorCode;
 import com.example.autowebgenerator.exception.ServiceException;
 import com.example.autowebgenerator.model.enums.CodeGenTypeEnum;
+import dev.langchain4j.service.TokenStream;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,11 +70,15 @@ public class AiCodeGeneratorFacade {
 
     private Flux<String> streamHtml(String userMessage, Long appId) {
         StringBuilder buf = new StringBuilder();
-        return aiCodeGeneratorService.generateHtmlCodeStream(userMessage)
-                .doOnNext(buf::append)
-                .doOnComplete(() -> {
+        TokenStream tokenStream = aiCodeGeneratorService.generateHtmlCodeStream(userMessage);
+        return Flux.create(emitter -> tokenStream
+                .onPartialResponse(token -> {
+                    buf.append(token);
+                    emitter.next(token);
+                })
+                .onCompleteResponse(response -> {
                     try {
-                        HtmlCodeResult result = com.example.autowebgenerator.core.CodeParser.parseHtmlCode(buf.toString());
+                        HtmlCodeResult result = CodeParser.parseHtmlCode(buf.toString());
                         if (appId != null) {
                             CodeFileSaver.saveHtmlCodeForApp(result, appId);
                         } else {
@@ -82,14 +87,21 @@ public class AiCodeGeneratorFacade {
                     } catch (Exception e) {
                         log.error("Failed to save streamed HTML code", e);
                     }
-                });
+                    emitter.complete();
+                })
+                .onError(emitter::error)
+                .start());
     }
 
     private Flux<String> streamMultiFile(String userMessage, Long appId) {
         StringBuilder buf = new StringBuilder();
-        return aiCodeGeneratorService.generateMultiFileCodeStream(userMessage)
-                .doOnNext(buf::append)
-                .doOnComplete(() -> {
+        TokenStream tokenStream = aiCodeGeneratorService.generateMultiFileCodeStream(userMessage);
+        return Flux.create(emitter -> tokenStream
+                .onPartialResponse(token -> {
+                    buf.append(token);
+                    emitter.next(token);
+                })
+                .onCompleteResponse(response -> {
                     try {
                         MultiFileCodeResult result = CodeParser.parseMultiFileCode(buf.toString());
                         if (appId != null) {
@@ -100,6 +112,9 @@ public class AiCodeGeneratorFacade {
                     } catch (Exception e) {
                         log.error("Failed to save streamed multi-file code", e);
                     }
-                });
+                    emitter.complete();
+                })
+                .onError(emitter::error)
+                .start());
     }
 }

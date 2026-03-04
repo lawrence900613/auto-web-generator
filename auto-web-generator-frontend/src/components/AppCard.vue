@@ -1,51 +1,58 @@
 <template>
-  <div class="app-card" @click="$emit('click', app)">
+  <div class="app-card" @click="goChat">
     <div class="app-cover">
       <img v-if="app.cover" :src="app.cover" :alt="app.appName" />
       <div v-else class="cover-placeholder">
-        <CodeOutlined style="font-size: 32px; color: #1890ff" />
+        <div class="cover-icon"><CodeOutlined /></div>
+      </div>
+      <!-- Hover overlay buttons -->
+      <div class="card-overlay">
+        <a-button class="overlay-btn" ghost @click.stop="goChat">View Chat</a-button>
+        <a-button v-if="app.deployKey" class="overlay-btn" ghost @click.stop="viewWork">View Work</a-button>
       </div>
     </div>
     <div class="app-info">
-      <div class="app-name">{{ app.appName || 'Untitled' }}</div>
-      <div class="app-prompt">{{ app.initPrompt }}</div>
-      <div class="app-meta">
-        <a-avatar v-if="app.user?.userAvatar" :src="app.user.userAvatar" :size="18" />
-        <span class="app-author">{{ app.user?.userName ?? 'Unknown' }}</span>
-        <a-tag v-if="app.deployedTime" color="green" style="margin-left: auto">Deployed</a-tag>
+      <div class="app-icon"><CodeOutlined /></div>
+      <div class="app-text">
+        <div class="app-name">{{ app.appName || 'Untitled' }}</div>
+        <div class="app-author">{{ app.user?.userName ?? 'Unknown' }}</div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { CodeOutlined } from '@ant-design/icons-vue'
 
-defineProps<{ app: API.AppVO }>()
-defineEmits<{ (e: 'click', app: API.AppVO): void }>()
+const props = defineProps<{ app: API.AppVO }>()
+const router = useRouter()
+
+const goChat = () => router.push(`/app/chat/${props.app.id}?view=1`)
+const viewWork = () => window.open(`http://localhost/${props.app.deployKey}`, '_blank')
 </script>
 
 <style scoped>
 .app-card {
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   cursor: pointer;
-  transition: box-shadow 0.2s;
-  background: #fff;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .app-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
 }
 
+/* Cover image */
 .app-cover {
-  height: 140px;
-  background: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  height: 175px;
   overflow: hidden;
+  background: linear-gradient(135deg, #dde8f8, #c8d8f0);
 }
 
 .app-cover img {
@@ -55,49 +62,88 @@ defineEmits<{ (e: 'click', app: API.AppVO): void }>()
 }
 
 .cover-placeholder {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 100%;
 }
 
+.cover-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f86f7, #2563eb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 22px;
+}
+
+/* Hover overlay */
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.app-card:hover .card-overlay {
+  opacity: 1;
+}
+
+.overlay-btn {
+  width: 120px;
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.8) !important;
+  font-size: 13px;
+}
+
+/* Info row */
 .app-info {
-  padding: 12px;
+  padding: 12px 14px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f86f7, #2563eb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.app-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .app-name {
-  font-weight: 600;
-  font-size: 15px;
-  margin-bottom: 4px;
+  font-weight: 700;
+  font-size: 14px;
+  color: #1a1a2e;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.app-prompt {
-  font-size: 12px;
-  color: #888;
-  height: 36px;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  margin-bottom: 8px;
-}
-
-.app-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #aaa;
 }
 
 .app-author {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
 }
 </style>

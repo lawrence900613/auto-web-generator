@@ -2,27 +2,35 @@
   <div id="homePage">
     <!-- Hero -->
     <div class="hero">
-      <h1 class="hero-title">Auto Web Generator</h1>
-      <p class="hero-desc">Describe your website — AI builds it instantly</p>
+      <h1 class="hero-title">AI Web Generator</h1>
+      <p class="hero-desc">Create any website with just one sentence</p>
       <div class="prompt-box">
-        <a-textarea
-          v-model:value="initPrompt"
-          placeholder="e.g. A personal blog about travel photography..."
-          :maxlength="1000"
-          :auto-size="{ minRows: 3, maxRows: 6 }"
-          show-count
-        />
-        <div class="quick-prompts">
-          <a-tag
-            v-for="tpl in promptTemplates"
-            :key="tpl"
-            class="quick-tag"
-            @click="initPrompt = tpl"
-          >{{ tpl }}</a-tag>
+        <div class="prompt-input-wrap">
+          <a-textarea
+            v-model:value="initPrompt"
+            placeholder="Build me a personal blog website..."
+            :maxlength="1000"
+            :auto-size="{ minRows: 3, maxRows: 6 }"
+            @keydown.enter.exact.prevent="doCreateApp"
+          />
+          <a-button
+            type="primary"
+            shape="circle"
+            class="submit-btn"
+            :loading="creating"
+            @click="doCreateApp"
+          >
+            <template #icon><ArrowUpOutlined /></template>
+          </a-button>
         </div>
-        <a-button type="primary" size="large" :loading="creating" @click="doCreateApp">
-          Generate Website
-        </a-button>
+        <div class="quick-prompts">
+          <span
+            v-for="tpl in promptTemplates"
+            :key="tpl.label"
+            class="quick-chip"
+            @click="initPrompt = tpl.prompt"
+          >{{ tpl.label }}</span>
+        </div>
       </div>
     </div>
 
@@ -32,7 +40,7 @@
       <a-spin :spinning="loadingMy">
         <a-empty v-if="myApps.length === 0 && !loadingMy" description="No apps yet" />
         <div class="card-grid">
-          <AppCard v-for="app in myApps" :key="app.id" :app="app" @click="goChat(app)" />
+          <AppCard v-for="appItem in myApps" :key="appItem.id" :app="appItem" />
         </div>
         <div class="pagination">
           <a-pagination
@@ -41,6 +49,7 @@
             :total="myTotal"
             :page-size="PAGE_SIZE"
             show-less-items
+            :show-total="(t: number) => `Total ${t} apps`"
             @change="fetchMyApps"
           />
         </div>
@@ -48,12 +57,12 @@
     </div>
 
     <!-- Featured apps -->
-    <div class="section">
+    <div class="section section-last">
       <h2 class="section-title">Featured Apps</h2>
       <a-spin :spinning="loadingGood">
         <a-empty v-if="goodApps.length === 0 && !loadingGood" description="No featured apps yet" />
         <div class="card-grid">
-          <AppCard v-for="app in goodApps" :key="app.id" :app="app" @click="goChat(app)" />
+          <AppCard v-for="appItem in goodApps" :key="appItem.id" :app="appItem" />
         </div>
         <div class="pagination">
           <a-pagination
@@ -62,6 +71,7 @@
             :total="goodTotal"
             :page-size="PAGE_SIZE"
             show-less-items
+            :show-total="(t: number) => `Total ${t} apps`"
             @change="fetchGoodApps"
           />
         </div>
@@ -74,6 +84,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import { ArrowUpOutlined } from '@ant-design/icons-vue'
 import { addApp, listMyAppVoByPage, listGoodAppVoByPage } from '@/api/appController'
 import { useLoginUserStore } from '@/stores/loginUser'
 import AppCard from '@/components/AppCard.vue'
@@ -86,10 +97,26 @@ const initPrompt = ref('')
 const creating = ref(false)
 
 const promptTemplates = [
-  'Personal blog website',
-  'Corporate homepage',
-  'Online store',
-  'Portfolio showcase',
+  {
+    label: 'Personal Blog',
+    prompt:
+      'Build me a clean personal blog website. The homepage should display a list of latest posts with category and tag filtering. Each post has a detail page with a table of contents, comments section, and a search bar at the top. Support dark mode toggle. Overall style: fresh and minimal.',
+  },
+  {
+    label: 'Corporate Site',
+    prompt:
+      'Build a corporate website for a tech startup. Include a full-screen hero banner with animation, followed by sections for core product features, customer testimonials, partner logos, team member profiles, and an online contact form. Style: modern, professional, and tech-forward.',
+  },
+  {
+    label: 'Online Store',
+    prompt:
+      'Build an online store for a specialty coffee shop. The homepage has a hero carousel and best-seller recommendations. Product listings support filtering by type and sorting by price. Each product has a detail page with reviews. Include a shopping cart and a simulated checkout flow. Style: warm and modern, brown tones.',
+  },
+  {
+    label: 'Portfolio',
+    prompt:
+      'Build a personal portfolio website for a UI designer. Include an animated hero section, a project gallery organized by category, a skills and work experience section, client testimonials, and a contact page. Style: clean, creative, and minimalist with black and white palette.',
+  },
 ]
 
 const myApps = ref<API.AppVO[]>([])
@@ -115,7 +142,6 @@ const doCreateApp = async () => {
   const res = await addApp({ initPrompt: initPrompt.value })
   creating.value = false
   if (res.data.code === 0 && res.data.data) {
-    message.success('App created!')
     router.push(`/app/chat/${res.data.data}`)
   } else {
     message.error('Failed: ' + res.data.message)
@@ -143,10 +169,6 @@ const fetchGoodApps = async () => {
   }
 }
 
-const goChat = (app: API.AppVO) => {
-  router.push(`/app/chat/${app.id}`)
-}
-
 onMounted(() => {
   fetchMyApps()
   fetchGoodApps()
@@ -155,27 +177,32 @@ onMounted(() => {
 
 <style scoped>
 #homePage {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 24px 24px 80px;
+  min-height: 100%;
 }
 
+/* ---- Hero ---- */
 .hero {
+  padding: 80px 24px 64px;
   text-align: center;
-  padding: 48px 0 32px;
 }
 
 .hero-title {
-  font-size: 2.4rem;
-  font-weight: 700;
-  color: #1890ff;
-  margin-bottom: 8px;
+  font-size: 3.8rem;
+  font-weight: 900;
+  letter-spacing: -2px;
+  margin-bottom: 14px;
+  background: linear-gradient(135deg, #3a5fa8 0%, #7b4fa8 50%, #b02070 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 2px 12px rgba(120, 60, 160, 0.15));
 }
 
 .hero-desc {
-  color: #888;
-  font-size: 1rem;
-  margin-bottom: 24px;
+  font-size: 1.2rem;
+  color: rgba(60, 40, 100, 0.75);
+  margin-bottom: 36px;
+  font-weight: 500;
 }
 
 .prompt-box {
@@ -183,38 +210,87 @@ onMounted(() => {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
+.prompt-input-wrap {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(120, 80, 160, 0.18);
+  padding: 16px 60px 16px 18px;
+}
+
+.prompt-input-wrap :deep(.ant-input) {
+  border: none !important;
+  box-shadow: none !important;
+  resize: none;
+  font-size: 16px;
+  padding: 0;
+  background: transparent;
+}
+
+.submit-btn {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 40px;
+  height: 40px;
+}
+
+/* Quick chips */
 .quick-prompts {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
 }
 
-.quick-tag {
+.quick-chip {
   cursor: pointer;
-  border-radius: 12px;
+  border-radius: 20px;
+  padding: 7px 20px;
+  font-size: 15px;
+  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: #fff;
+  transition: all 0.18s;
+  user-select: none;
+  backdrop-filter: blur(4px);
 }
 
+.quick-chip:hover {
+  background: rgba(255, 255, 255, 0.45);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+/* ---- App sections ---- */
 .section {
-  margin-top: 48px;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 28px 40px;
+}
+
+.section-last {
+  padding-bottom: 80px;
 }
 
 .section-title {
-  font-size: 1.3rem;
-  font-weight: 600;
-  margin-bottom: 16px;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 18px;
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(100, 80, 160, 0.12);
 }
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
 }
 
 .pagination {
-  margin-top: 24px;
+  margin-top: 28px;
   text-align: center;
 }
 </style>

@@ -1,10 +1,16 @@
 ﻿import axios from 'axios'
 import { message } from 'ant-design-vue'
 
+// Replace bare JSON integers ≥ 16 digits with quoted strings before JSON.parse
+// so that JavaScript never loses precision on Snowflake IDs.
+const safeParse = (raw: string) =>
+  JSON.parse(raw.replace(/:(\s*)(\d{16,})([,}\]])/g, ':$1"$2"$3'))
+
 const myAxios = axios.create({
-  baseURL: 'http://localhost:8123/api',
+  baseURL: import.meta.env.VITE_API_BASE ?? 'http://localhost:8123/api',
   timeout: 60000,
   withCredentials: true,
+  transformResponse: [safeParse],
 })
 
 myAxios.interceptors.request.use(

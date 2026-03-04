@@ -2,11 +2,11 @@
   <a-layout-header class="header">
     <a-row :wrap="false">
       <!-- Left: Logo and title -->
-      <a-col flex="220px">
+      <a-col flex="260px">
         <RouterLink to="/">
           <div class="header-left">
             <img class="logo" src="@/assets/logo.svg" alt="Logo" />
-            <h1 class="site-title">Auto Web Generator</h1>
+            <h1 class="site-title">AI Web Generator</h1>
           </div>
         </RouterLink>
       </a-col>
@@ -71,7 +71,6 @@ router.afterEach((to) => {
 // All possible menu items — those with access require a role
 const allMenuItems = [
   { key: '/', icon: () => h(HomeOutlined), label: 'Home', title: 'Home' },
-  { key: '/about', label: 'About', title: 'About' },
   {
     key: '/admin/userManage',
     label: 'User Management',
@@ -117,7 +116,10 @@ const doLogout = async () => {
 <style scoped>
 .header {
   background: #fff;
-  padding: 0 24px;
+  padding: 0 28px;
+  height: 72px;
+  line-height: 72px;
+  box-shadow: 0 1px 12px rgba(160, 100, 200, 0.1);
 }
 
 .header-left {
@@ -127,15 +129,20 @@ const doLogout = async () => {
 }
 
 .logo {
-  height: 48px;
-  width: 48px;
+  height: 52px;
+  width: 52px;
 }
 
 .site-title {
   margin: 0;
-  font-size: 18px;
-  color: #1890ff;
+  font-size: 22px;
+  font-weight: 800;
   white-space: nowrap;
+  background: linear-gradient(135deg, #6a8fd8 0%, #9b6ed4 50%, #d4509a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.3px;
 }
 
 .user-login-status {
@@ -146,5 +153,21 @@ const doLogout = async () => {
 
 :deep(.ant-menu-horizontal) {
   border-bottom: none !important;
+}
+
+:deep(.ant-menu-item),
+:deep(.ant-menu-submenu-title) {
+  font-size: 16px !important;
+  font-weight: 500;
+}
+
+:deep(.ant-avatar) {
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+}
+
+:deep(.ant-space) {
+  font-size: 16px;
 }
 </style>

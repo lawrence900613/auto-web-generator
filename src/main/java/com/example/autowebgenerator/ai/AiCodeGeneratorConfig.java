@@ -27,7 +27,7 @@ public class AiCodeGeneratorConfig {
     @Value("${openai.api-key}")
     private String apiKey;
 
-    @Value("${openai.model:gpt-5-mini}")
+    @Value("${openai.model:gpt-4o-mini}")
     private String modelName;
 
     @Value("${openai.max-tokens:8192}")

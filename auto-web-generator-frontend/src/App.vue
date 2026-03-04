@@ -14,6 +14,7 @@ import BasicLayout from '@/layouts/BasicLayout.vue'
 body {
   margin: 0;
   padding: 0;
+  font-size: 16px;
   font-family:
     -apple-system,
     BlinkMacSystemFont,

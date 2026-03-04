@@ -17,14 +17,18 @@ import com.example.autowebgenerator.service.AppService;
 import com.example.autowebgenerator.service.UserService;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
+import cn.hutool.json.JSONUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/app")
@@ -42,7 +46,7 @@ public class AppController {
 
     /** Create an app — only initPrompt is required. */
     @PostMapping("/add")
-    public ApiResponse<Long> addApp(@RequestBody AppAddRequest request, HttpServletRequest httpRequest) {
+    public ApiResponse<String> addApp(@RequestBody AppAddRequest request, HttpServletRequest httpRequest) {
         ExceptionUtils.throwIf(request == null, ErrorCode.BAD_REQUEST);
         String initPrompt = request.getInitPrompt();
         ExceptionUtils.throwIf(initPrompt == null || initPrompt.isBlank(), ErrorCode.BAD_REQUEST, "initPrompt cannot be blank");
@@ -51,16 +55,17 @@ public class AppController {
         App app = new App();
         app.setInitPrompt(initPrompt);
         app.setUserId(loginUser.getId());
-        // Default name = first 12 chars of initPrompt
-        app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
+        // Default name = first 40 chars of initPrompt
+        app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 40)));
         app.setCodeGenType(CodeGenTypeEnum.MULTI_FILE.getValue());
         app.setPriority(AppConstant.DEFAULT_APP_PRIORITY);
+        app.setIsDelete(0);
         app.setCreateTime(new Date());
         app.setEditTime(new Date());
 
         boolean saved = appService.save(app);
         ExceptionUtils.throwIf(!saved, ErrorCode.OPERATION_FAILED);
-        return ApiResponseUtils.success(app.getId());
+        return ApiResponseUtils.success(String.valueOf(app.getId()));
     }
 
     /** Update own app (name only). */
@@ -146,11 +151,18 @@ public class AppController {
 
     /** Stream AI code generation for an app via SSE (owner only). */
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> chatToGenCode(@RequestParam Long appId,
-                                      @RequestParam String message,
-                                      HttpServletRequest httpRequest) {
+    public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
+                                                       @RequestParam String message,
+                                                       HttpServletRequest httpRequest) {
         User loginUser = userService.getLoginUser(httpRequest);
-        return appService.chatToGenCode(appId, message, loginUser);
+        return appService.chatToGenCode(appId, message, loginUser)
+                .map(chunk -> ServerSentEvent.<String>builder()
+                        .data(JSONUtil.toJsonStr(Map.of("d", chunk)))
+                        .build())
+                .concatWith(Mono.just(ServerSentEvent.<String>builder()
+                        .event("done")
+                        .data("")
+                        .build()));
     }
 
     /** Deploy an app — generates a deployKey and copies files. */

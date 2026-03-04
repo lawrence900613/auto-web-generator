@@ -94,7 +94,7 @@ const pagination = computed(() => ({
 // ---- Fetch ----
 const fetchData = async () => {
   const res = await listUserVoByPage({ ...searchParams })
-  if (res.data.data) {
+  if (res.data.code === 0 && res.data.data) {
     data.value = res.data.data.records ?? []
     total.value = res.data.data.totalRow ?? 0
   } else {

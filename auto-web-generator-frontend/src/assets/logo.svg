@@ -1,1 +1,44 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 261.76 226.69"><path d="M161.096.001l-30.225 52.351L100.647.001H-.005l130.877 226.688L261.749.001z" fill="#41b883"/><path d="M161.096.001l-30.225 52.351L100.647.001H52.346l78.526 136.01L209.398.001z" fill="#34495e"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="hexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a6c1ee"/>
+      <stop offset="60%" stop-color="#c9a8e0"/>
+      <stop offset="100%" stop-color="#fbc2eb"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Hexagon -->
+  <polygon points="60,6 108,33 108,87 60,114 12,87 12,33" fill="url(#hexGrad)"/>
+
+  <!-- Globe circle -->
+  <circle cx="60" cy="60" r="28" fill="none" stroke="white" stroke-width="2" opacity="0.9"/>
+
+  <!-- Globe vertical ellipse -->
+  <ellipse cx="60" cy="60" rx="14" ry="28" fill="none" stroke="white" stroke-width="1.5" opacity="0.8"/>
+
+  <!-- Globe horizontal lines -->
+  <line x1="32" y1="60" x2="88" y2="60" stroke="white" stroke-width="1.5" opacity="0.8"/>
+  <line x1="36" y1="45" x2="84" y2="45" stroke="white" stroke-width="1" opacity="0.6"/>
+  <line x1="36" y1="75" x2="84" y2="75" stroke="white" stroke-width="1" opacity="0.6"/>
+
+  <!-- WWW text -->
+  <text x="60" y="63" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">www</text>
+
+  <!-- Sparkles -->
+  <circle cx="94" cy="30" r="2" fill="white" opacity="0.8"/>
+  <circle cx="100" cy="42" r="1.2" fill="white" opacity="0.6"/>
+  <circle cx="20" cy="80" r="1.5" fill="white" opacity="0.7"/>
+  <circle cx="26" cy="40" r="1" fill="white" opacity="0.5"/>
+
+  <!-- Circuit dots -->
+  <circle cx="90" cy="72" r="2.5" fill="none" stroke="white" stroke-width="1.5" opacity="0.7"/>
+  <line x1="88" y1="72" x2="82" y2="72" stroke="white" stroke-width="1.2" opacity="0.6"/>
+  <circle cx="30" cy="48" r="2" fill="none" stroke="white" stroke-width="1.2" opacity="0.6"/>
+</svg>
