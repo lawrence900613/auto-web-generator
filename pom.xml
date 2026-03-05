@@ -72,14 +72,14 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
-            <version>1.0.0</version>
+            <version>1.1.0</version>
         </dependency>
 
-        <!-- LangChain4j OpenAI (ChatGPT) Integration -->
+        <!-- LangChain4j OpenAI Integration -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>
-            <version>1.0.0</version>
+            <version>1.1.0</version>
         </dependency>
 <!-- Reactor Core ??required for Flux<String> in Spring MVC (not pulled in by webmvc) -->
         <dependency>
@@ -115,6 +115,39 @@
             <artifactId>mybatis-flex-processor</artifactId>
             <version>1.10.4</version>
             <scope>provided</scope>
+        </dependency>
+
+        <!-- LangChain4j Community Redis — RedisChatMemoryStore -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-community-redis-spring-boot-starter</artifactId>
+            <version>1.1.0-beta7</version>
+        </dependency>
+
+        <!-- Caffeine local cache — AI service instance cache per appId -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
+        <!-- Spring Session + Redis — stores HTTP sessions in Redis for distributed login state -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
+
+        <!-- Selenium — headless Chrome for app cover screenshot generation -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>4.33.0</version>
+        </dependency>
+
+        <!-- WebDriverManager — auto-downloads matching ChromeDriver binary -->
+        <dependency>
+            <groupId>io.github.bonigarcia</groupId>
+            <artifactId>webdrivermanager</artifactId>
+            <version>6.1.0</version>
         </dependency>
 
     </dependencies>

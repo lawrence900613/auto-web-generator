@@ -174,4 +174,29 @@ declare namespace API {
     sortBy?: string
     sortOrder?: string
   }
+
+  // ---- ChatHistory types ----
+
+  type ChatHistory = {
+    id?: string
+    message?: string
+    messageType?: string  // "user" | "ai"
+    appId?: string
+    userId?: string
+    createTime?: number   // epoch ms
+    updateTime?: number
+  }
+
+  type PageChatHistory = {
+    records?: ChatHistory[]
+    totalRow?: number
+    pageNumber?: number
+    pageSize?: number
+  }
+
+  type ApiResponsePageChatHistory = {
+    code?: number
+    data?: PageChatHistory
+    message?: string
+  }
 }

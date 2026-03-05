@@ -9,7 +9,8 @@ package com.example.autowebgenerator.model.enums;
 public enum CodeGenTypeEnum {
 
     HTML("Single-file HTML", "html"),
-    MULTI_FILE("Multi-file (HTML + CSS + JS)", "multi_file");
+    MULTI_FILE("Multi-file (HTML + CSS + JS)", "multi_file"),
+    VUE_PROJECT("Vue Project", "vue_project");
 
     private final String label;
     private final String value;

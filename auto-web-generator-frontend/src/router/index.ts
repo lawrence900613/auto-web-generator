@@ -45,6 +45,12 @@ const router = createRouter({
       meta: { access: ACCESS_ENUM.ADMIN },
     },
     {
+      path: '/admin/chatManage',
+      name: 'adminChatManage',
+      component: () => import('../pages/admin/ChatManagePage.vue'),
+      meta: { access: ACCESS_ENUM.ADMIN },
+    },
+    {
       path: '/noAuth',
       name: 'noAuth',
       component: () => import('../pages/NoAuthPage.vue'),

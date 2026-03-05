@@ -9,6 +9,7 @@ import com.example.autowebgenerator.model.enums.CodeGenTypeEnum;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 /**
  * Persists AI-generated code to the local file system.
@@ -67,6 +68,30 @@ public class CodeFileSaver {
 
     public static void deployCodeForApp(Long appId, String deployKey) {
         String srcDir = appOutputDir(appId);
+        String destDir = DEPLOY_ROOT + File.separator + deployKey;
+        FileUtil.mkdir(destDir);
+        FileUtil.copyContent(new File(srcDir), new File(destDir), true);
+    }
+
+    /**
+     * Write all files from a parsed Vue project response to the vue_project_{appId} directory.
+     */
+    public static void saveVueProjectFiles(Map<String, String> files, Long appId) {
+        String projectDir = OUTPUT_ROOT + File.separator + "vue_project_" + appId;
+        FileUtil.mkdir(projectDir);
+        for (Map.Entry<String, String> entry : files.entrySet()) {
+            String relativePath = entry.getKey().replace("/", File.separator);
+            String fullPath = projectDir + File.separator + relativePath;
+            FileUtil.writeString(entry.getValue(), fullPath, StandardCharsets.UTF_8);
+        }
+    }
+
+    /**
+     * Deploy a built Vue project: copies the dist/ directory to the deploy location.
+     * The project must have been built (npm run build) before calling this.
+     */
+    public static void deployVueProjectForApp(Long appId, String deployKey) {
+        String srcDir = OUTPUT_ROOT + File.separator + "vue_project_" + appId + File.separator + "dist";
         String destDir = DEPLOY_ROOT + File.separator + deployKey;
         FileUtil.mkdir(destDir);
         FileUtil.copyContent(new File(srcDir), new File(destDir), true);

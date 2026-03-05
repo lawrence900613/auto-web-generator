@@ -83,6 +83,12 @@ const allMenuItems = [
     title: 'App Management',
     access: ACCESS_ENUM.ADMIN,
   },
+  {
+    key: '/admin/chatManage',
+    label: 'Chat Management',
+    title: 'Chat Management',
+    access: ACCESS_ENUM.ADMIN,
+  },
 ]
 
 // Only show items the current user is allowed to see

@@ -22,5 +22,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
         registry.addResourceHandler("/deploy/**")
                 .addResourceLocations("file:" + base + "/tmp/code_deploy/");
+
+        registry.addResourceHandler("/covers/**")
+                .addResourceLocations("file:" + base + "/tmp/covers/");
     }
 }

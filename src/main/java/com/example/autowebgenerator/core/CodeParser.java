@@ -3,6 +3,8 @@ package com.example.autowebgenerator.core;
 import com.example.autowebgenerator.ai.model.HtmlCodeResult;
 import com.example.autowebgenerator.ai.model.MultiFileCodeResult;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -61,6 +63,24 @@ public class CodeParser {
         if (js   != null) result.setJsCode(js.trim());
         result.setDescription("Generated via streaming");
         return result;
+    }
+
+    /**
+     * Parse a Vue project streaming response that uses [FILE:path]...[/FILE] delimiters.
+     *
+     * Returns a path → content map in encounter order.
+     * The path is sanitised (no leading slashes, no "../").
+     */
+    public static Map<String, String> parseVueProjectFiles(String rawContent) {
+        Map<String, String> files = new LinkedHashMap<>();
+        Pattern pattern = Pattern.compile("\\[FILE:([^\\]]+)\\]\\n([\\s\\S]*?)\\n?\\[/FILE\\]");
+        Matcher m = pattern.matcher(rawContent);
+        while (m.find()) {
+            String path = m.group(1).trim().replaceAll("\\.\\./", "").replaceAll("^/+", "");
+            String content = m.group(2);
+            files.put(path, content);
+        }
+        return files;
     }
 
     private static String extract(String content, Pattern pattern) {

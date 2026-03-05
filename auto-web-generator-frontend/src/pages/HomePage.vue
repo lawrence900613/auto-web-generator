@@ -9,8 +9,8 @@
           <a-textarea
             v-model:value="initPrompt"
             placeholder="Build me a personal blog website..."
-            :maxlength="1000"
-            :auto-size="{ minRows: 3, maxRows: 6 }"
+            :maxlength="10000"
+            :auto-size="{ minRows: 3, maxRows: 1000 }"
             @keydown.enter.exact.prevent="doCreateApp"
           />
           <a-button

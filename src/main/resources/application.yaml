@@ -6,6 +6,16 @@
   autoconfigure:
     exclude:
       - com.mybatisflex.spring.boot.FlexTransactionAutoConfiguration
+      - dev.langchain4j.community.store.embedding.redis.spring.RedisEmbeddingStoreAutoConfiguration
+  session:
+    store-type: redis
+    timeout: 2592000  # 30 days in seconds
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      ttl: 3600
   datasource:
     driver-class-name: org.postgresql.Driver
     url: ${DB_URL:jdbc:postgresql://localhost:5432/auto_web_generator}
@@ -33,7 +43,8 @@ knife4j:
 
 openai:
   api-key: ${OPENAI_API_KEY:your-openai-api-key-here}
-  model: gpt-4o-mini
-  max-tokens: 8192
+  model: gpt-4.1
+  reasoning-model: gpt-5-mini
+  max-tokens: 16384
   log-requests: true
   log-responses: true

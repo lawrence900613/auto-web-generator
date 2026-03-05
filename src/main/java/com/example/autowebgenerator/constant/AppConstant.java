@@ -7,4 +7,7 @@ public interface AppConstant {
 
     /** Default priority for newly created apps. */
     Integer DEFAULT_APP_PRIORITY = 0;
+
+    /** Root directory for all AI-generated code output. */
+    String CODE_OUTPUT_ROOT_DIR = System.getProperty("user.dir") + "/tmp/code_output";
 }

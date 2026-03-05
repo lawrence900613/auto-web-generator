@@ -20,6 +20,7 @@ import com.mybatisflex.core.query.QueryWrapper;
 import cn.hutool.json.JSONUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
@@ -40,6 +41,9 @@ public class AppController {
     @Resource
     private UserService userService;
 
+    @Resource
+    private com.example.autowebgenerator.service.ProjectDownloadService projectDownloadService;
+
     // -------------------------------------------------------------------------
     // User endpoints
     // -------------------------------------------------------------------------
@@ -57,7 +61,7 @@ public class AppController {
         app.setUserId(loginUser.getId());
         // Default name = first 40 chars of initPrompt
         app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 40)));
-        app.setCodeGenType(CodeGenTypeEnum.MULTI_FILE.getValue());
+        app.setCodeGenType(CodeGenTypeEnum.VUE_PROJECT.getValue());
         app.setPriority(AppConstant.DEFAULT_APP_PRIORITY);
         app.setIsDelete(0);
         app.setCreateTime(new Date());
@@ -157,12 +161,45 @@ public class AppController {
         User loginUser = userService.getLoginUser(httpRequest);
         return appService.chatToGenCode(appId, message, loginUser)
                 .map(chunk -> ServerSentEvent.<String>builder()
-                        .data(JSONUtil.toJsonStr(Map.of("d", chunk)))
+                        .data(chunk)  // chunk is already typed JSON: {"type":"...", ...}
                         .build())
+                .onErrorResume(e -> {
+                    String clean;
+                    try {
+                        clean = JSONUtil.parseObj(e.getMessage()).getByPath("error.message", String.class);
+                        if (clean == null) clean = e.getMessage();
+                    } catch (Exception ignored) {
+                        clean = e.getMessage() != null ? e.getMessage() : "AI service error";
+                    }
+                    return Mono.just(ServerSentEvent.<String>builder()
+                            .event("error")
+                            .data(JSONUtil.toJsonStr(Map.of("msg", clean)))
+                            .build());
+                })
                 .concatWith(Mono.just(ServerSentEvent.<String>builder()
                         .event("done")
                         .data("")
                         .build()));
+    }
+
+    /** Download the source code of an app as a ZIP file (owner only). */
+    @GetMapping("/download/{appId}")
+    public void downloadAppCode(@PathVariable Long appId,
+                                HttpServletRequest httpRequest,
+                                HttpServletResponse httpResponse) throws Exception {
+        ExceptionUtils.throwIf(appId == null || appId <= 0, ErrorCode.BAD_REQUEST);
+        User loginUser = userService.getLoginUser(httpRequest);
+
+        App app = appService.getById(appId);
+        ExceptionUtils.throwIf(app == null, ErrorCode.NOT_FOUND, "App not found");
+        ExceptionUtils.throwIf(!app.getUserId().equals(loginUser.getId()), ErrorCode.FORBIDDEN, "No permission");
+
+        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.fromValue(app.getCodeGenType());
+        ExceptionUtils.throwIf(codeGenTypeEnum == null, ErrorCode.SYSTEM_ERROR, "Unsupported code gen type");
+
+        String projectDirName = codeGenTypeEnum.getValue() + "_" + appId;
+        String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + "/" + projectDirName;
+        projectDownloadService.downloadProjectAsZip(projectPath, appId + ".zip", httpResponse);
     }
 
     /** Deploy an app — generates a deployKey and copies files. */

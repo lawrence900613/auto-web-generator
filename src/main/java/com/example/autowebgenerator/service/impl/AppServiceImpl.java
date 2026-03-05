@@ -4,10 +4,11 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
-import com.example.autowebgenerator.constant.AppConstant;
+import cn.hutool.json.JSONUtil;
 import com.example.autowebgenerator.constant.UserConstant;
 import com.example.autowebgenerator.core.AiCodeGeneratorFacade;
 import com.example.autowebgenerator.core.CodeFileSaver;
+import com.example.autowebgenerator.core.builder.VueProjectBuilder;
 import com.example.autowebgenerator.exception.ErrorCode;
 import com.example.autowebgenerator.exception.ExceptionUtils;
 import com.example.autowebgenerator.mapper.AppMapper;
@@ -15,19 +16,26 @@ import com.example.autowebgenerator.model.dto.app.AppQueryRequest;
 import com.example.autowebgenerator.model.entity.App;
 import com.example.autowebgenerator.model.entity.User;
 import com.example.autowebgenerator.model.enums.CodeGenTypeEnum;
+import com.example.autowebgenerator.model.enums.MessageTypeEnum;
 import com.example.autowebgenerator.model.vo.AppVO;
 import com.example.autowebgenerator.model.vo.UserVO;
+import com.example.autowebgenerator.service.AppCoverService;
 import com.example.autowebgenerator.service.AppService;
+import com.example.autowebgenerator.service.ChatHistoryService;
 import com.example.autowebgenerator.service.UserService;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
 
@@ -36,6 +44,16 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private AiCodeGeneratorFacade aiCodeGeneratorFacade;
+
+    @Resource
+    private VueProjectBuilder vueProjectBuilder;
+
+    @Lazy
+    @Resource
+    private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private AppCoverService appCoverService;
 
     @Override
     public AppVO getAppVO(App app) {
@@ -53,7 +71,6 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     @Override
     public List<AppVO> getAppVOList(List<App> appList) {
         if (CollUtil.isEmpty(appList)) return new ArrayList<>();
-        // Batch-fetch users to avoid N+1
         Set<Long> userIds = appList.stream().map(App::getUserId).collect(Collectors.toSet());
         Map<Long, UserVO> userVOMap = userService.listByIds(userIds).stream()
                 .collect(Collectors.toMap(User::getId, userService::getUserVO));
@@ -98,7 +115,44 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.fromValue(codeGenTypeStr);
         ExceptionUtils.throwIf(codeGenTypeEnum == null, ErrorCode.SYSTEM_ERROR, "Unsupported code gen type");
 
-        return aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
+        // Save user message to history
+        chatHistoryService.addChatMessage(appId, message, MessageTypeEnum.USER.getValue(), loginUser.getId());
+
+        StringBuilder aiResponseBuilder = new StringBuilder();
+        return aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId)
+                .map(chunk -> {
+                    // Each chunk is typed JSON: {"type":"ai_response","data":"..."} or
+                    // {"type":"tool_executed","id":"...","name":"...","result":"OK: path"}
+                    // Build a clean DB string while passing the original typed chunk downstream.
+                    try {
+                        var json = JSONUtil.parseObj(chunk);
+                        String type = json.getStr("type");
+                        if ("ai_response".equals(type)) {
+                            aiResponseBuilder.append(json.getStr("data"));
+                        } else if ("tool_executed".equals(type)) {
+                            String path    = json.getStr("path");
+                            String content = json.getStr("content");
+                            String lang    = fileLang(path);
+                            aiResponseBuilder.append("\n[Tool] Writing file: ").append(path)
+                                    .append("\n```").append(lang).append("\n")
+                                    .append(content)
+                                    .append("\n```\n");
+                        }
+                    } catch (Exception ignored) {
+                        aiResponseBuilder.append(chunk);
+                    }
+                    return chunk;
+                })
+                .doOnComplete(() -> {
+                    String aiResponse = aiResponseBuilder.toString();
+                    if (!aiResponse.isBlank()) {
+                        chatHistoryService.addChatMessage(appId, aiResponse, MessageTypeEnum.AI.getValue(), loginUser.getId());
+                    }
+                })
+                .doOnError(error -> {
+                    String errMsg = "AI generation failed: " + error.getMessage();
+                    chatHistoryService.addChatMessage(appId, errMsg, MessageTypeEnum.AI.getValue(), loginUser.getId());
+                });
     }
 
     @Override
@@ -109,26 +163,68 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         boolean isAdmin = UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole());
         ExceptionUtils.throwIf(!isOwner && !isAdmin, ErrorCode.FORBIDDEN, "No permission");
 
-        // Generate or reuse deploy key
+        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.fromValue(app.getCodeGenType());
+
         String deployKey = app.getDeployKey();
         if (StrUtil.isBlank(deployKey)) {
             deployKey = RandomUtil.randomString(6);
-            // Ensure uniqueness
             while (this.count(QueryWrapper.create().eq("deploy_key", deployKey)) > 0) {
                 deployKey = RandomUtil.randomString(6);
             }
         }
 
-        // Copy generated files to deploy directory
-        CodeFileSaver.deployCodeForApp(appId, deployKey);
+        if (CodeGenTypeEnum.VUE_PROJECT == codeGenTypeEnum) {
+            // Build the Vue project synchronously before copying dist/
+            vueProjectBuilder.buildProject(VueProjectBuilder.projectPath(appId));
+            CodeFileSaver.deployVueProjectForApp(appId, deployKey);
+        } else {
+            CodeFileSaver.deployCodeForApp(appId, deployKey);
+        }
 
-        // Persist deploy key and time
         App update = new App();
         update.setId(appId);
         update.setDeployKey(deployKey);
         update.setDeployedTime(new Date());
         this.updateById(update);
 
+        // Async: generate cover screenshot from the deployed site
+        appCoverService.generateCoverAsync(appId, deployKey);
+
         return deployKey;
+    }
+
+    @Override
+    public boolean removeById(Serializable id) {
+        if (id == null) return false;
+        Long appId = Long.valueOf(id.toString());
+        try {
+            chatHistoryService.deleteByAppId(appId);
+        } catch (Exception e) {
+            log.error("Failed to cascade-delete chat history for app {}: {}", appId, e.getMessage());
+        }
+        // Delete cover image file if it exists
+        java.io.File coverFile = new java.io.File(
+                System.getProperty("user.dir") + "/tmp/covers/" + appId + ".jpg");
+        if (coverFile.exists()) {
+            boolean deleted = coverFile.delete();
+            if (!deleted) log.warn("Failed to delete cover file for app {}", appId);
+        }
+        return super.removeById(id);
+    }
+
+    /** Maps a file extension to a fenced-code-block language tag. */
+    private static String fileLang(String path) {
+        if (path == null) return "";
+        int dot = path.lastIndexOf('.');
+        if (dot < 0) return "";
+        return switch (path.substring(dot + 1).toLowerCase()) {
+            case "vue"  -> "vue";
+            case "js"   -> "javascript";
+            case "ts"   -> "typescript";
+            case "html" -> "html";
+            case "css"  -> "css";
+            case "json" -> "json";
+            default     -> path.substring(dot + 1);
+        };
     }
 }

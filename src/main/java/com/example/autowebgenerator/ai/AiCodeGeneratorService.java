@@ -2,8 +2,10 @@ package com.example.autowebgenerator.ai;
 
 import com.example.autowebgenerator.ai.model.HtmlCodeResult;
 import com.example.autowebgenerator.ai.model.MultiFileCodeResult;
+import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.TokenStream;
+import dev.langchain4j.service.UserMessage;
 
 /**
  * AI code generation service — declared as a plain Java interface.
@@ -66,4 +68,31 @@ public interface AiCodeGeneratorService {
      */
     @SystemMessage(fromResource = "prompt/codegen-multi-file-system-prompt.txt")
     TokenStream generateMultiFileCodeStream(String userMessage);
+
+    /**
+     * Generate a Vue3 project (streaming).
+     *
+     * The AI outputs every file using [FILE:path]...[/FILE] delimiters and then a
+     * plain-text summary. Tokens stream back via the returned TokenStream.
+     * On completion, the caller parses the accumulated buffer with
+     * CodeParser.parseVueProjectFiles(), saves the files, and runs npm build.
+     *
+     * @param userMessage natural-language description of the desired app
+     * @return TokenStream — attach handlers with .onPartialResponse / .onCompleteResponse
+     */
+    @SystemMessage(fromResource = "prompt/codegen-vue-project-system-prompt.txt")
+    TokenStream generateVueProjectCodeStream(@MemoryId long appId, @UserMessage String userMessage);
+
+    /**
+     * Auto-fix a Vue3 project after a build failure (synchronous).
+     *
+     * The npm error output is included in errorContext so the AI can identify and
+     * fix the broken files by calling writeFile() for each corrected file.
+     *
+     * @param appId        the app's ID (used to select the correct chat memory)
+     * @param errorContext the build error + instruction to fix
+     * @return AI response (the side-effect is writeFile() tool calls)
+     */
+    @SystemMessage(fromResource = "prompt/codegen-vue-project-system-prompt.txt")
+    String fixVueProjectCode(@MemoryId long appId, @UserMessage String errorContext);
 }

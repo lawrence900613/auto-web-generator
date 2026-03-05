@@ -12,6 +12,14 @@
           App Details
         </a-button>
         <a-button
+          type="default"
+          :disabled="!canDeploy && !app?.deployKey"
+          @click="doDownload"
+        >
+          <template #icon><DownloadOutlined /></template>
+          Download Code
+        </a-button>
+        <a-button
           type="primary"
           ghost
           :disabled="!canDeploy && !app?.deployKey"
@@ -29,6 +37,13 @@
       <!-- Left: chat panel -->
       <div class="chat-panel">
         <div ref="msgListRef" class="msg-list">
+          <!-- Load more history -->
+          <div v-if="hasMoreHistory" class="load-more-wrap">
+            <a-button size="small" :loading="loadingHistory" @click="loadMoreHistory">
+              Load earlier messages
+            </a-button>
+          </div>
+
           <template v-for="(msg, idx) in messages" :key="idx">
 
             <!-- User message -->
@@ -43,15 +58,7 @@
             <div v-else class="ai-msg-wrap">
               <div class="ai-avatar"><RobotFilled /></div>
               <div class="ai-body">
-                <template v-for="(seg, si) in parseSegments(msg.content)" :key="si">
-                  <div v-if="seg.type === 'code'" class="code-block">
-                    <div class="code-header">
-                      <span class="code-lang">{{ seg.language || 'code' }}</span>
-                    </div>
-                    <pre class="code-content"><code>{{ seg.content }}</code></pre>
-                  </div>
-                  <div v-else class="ai-text">{{ seg.content }}</div>
-                </template>
+                <div class="markdown-body" v-html="renderMarkdown(msg.content)" />
               </div>
             </div>
 
@@ -61,7 +68,11 @@
           <div v-if="streaming" class="ai-msg-wrap">
             <div class="ai-avatar"><RobotFilled /></div>
             <div class="ai-body">
-              <div class="ai-text stream-text">{{ streamBuffer }}<span class="cursor">|</span></div>
+              <div v-if="!streamBuffer" class="thinking">
+                <span class="dot" /><span class="dot" /><span class="dot" />
+                AI is thinking...
+              </div>
+              <div v-else class="markdown-body stream-body" v-html="renderMarkdown(streamBuffer)" />
             </div>
           </div>
         </div>
@@ -73,7 +84,7 @@
               <a-textarea
                 v-model:value="inputText"
                 :placeholder="isOwner ? 'Describe the website you want — more detail means better results' : 'Only the app owner can send messages'"
-                :auto-size="{ minRows: 3, maxRows: 6 }"
+                :auto-size="{ minRows: 3, maxRows: 1000 }"
                 :disabled="streaming || !isOwner"
                 @focus="inputFocused = true"
                 @blur="inputFocused = false"
@@ -153,14 +164,36 @@ import {
   CodeOutlined,
   InfoCircleOutlined,
   CloudUploadOutlined,
+  DownloadOutlined,
   ArrowUpOutlined,
   ReloadOutlined,
   ExportOutlined,
 } from '@ant-design/icons-vue'
+import { marked } from 'marked'
+import { markedHighlight } from 'marked-highlight'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github-dark.css'
 import { getAppVoById, deployApp } from '@/api/appController'
+import { listAppChatHistory } from '@/api/chatHistoryController'
 import { useLoginUserStore } from '@/stores/loginUser'
 import AppDetailModal from '@/components/AppDetailModal.vue'
 import DeploySuccessModal from '@/components/DeploySuccessModal.vue'
+
+// Configure marked with highlight.js
+marked.use(
+  markedHighlight({
+    langPrefix: 'hljs language-',
+    highlight(code, lang) {
+      const language = hljs.getLanguage(lang) ? lang : 'plaintext'
+      return hljs.highlight(code, { language }).value
+    },
+  }),
+)
+marked.use({ breaks: true, gfm: true })
+
+const renderMarkdown = (content: string): string => {
+  return marked.parse(content) as string
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -169,7 +202,6 @@ const loginUserStore = useLoginUserStore()
 const apiBase = (import.meta.env.VITE_API_BASE ?? 'http://localhost:8123/api') as string
 const deployDomain = (import.meta.env.VITE_DEPLOY_DOMAIN ?? 'http://localhost') as string
 const appId = route.params.id as string
-const viewOnly = route.query.view === '1'
 
 const app = ref<API.AppVO>()
 const messages = ref<{ role: 'user' | 'assistant'; content: string }[]>([])
@@ -185,6 +217,9 @@ const deploying = ref(false)
 const detailVisible = ref(false)
 const deploySuccessVisible = ref(false)
 const deployedUrl = ref('')
+const hasMoreHistory = ref(false)
+const loadingHistory = ref(false)
+const lastCreateTime = ref<number | null>(null)
 
 const isOwner = computed(
   () =>
@@ -198,27 +233,72 @@ const codeGenLabel = computed(() => {
   const t = app.value?.codeGenType
   if (t === 'html') return 'HTML Mode'
   if (t === 'multi_file') return 'Multi-file Mode'
+  if (t === 'vue_project') return 'Vue Project'
   return t ?? ''
 })
 
-// ---- Message segment parser ----
-interface Segment { type: 'text' | 'code'; content: string; language: string }
-
-const parseSegments = (content: string): Segment[] => {
-  const result: Segment[] = []
-  const re = /```(\w*)\n?([\s\S]*?)```/g
-  let pos = 0
-  let m: RegExpExecArray | null
-  while ((m = re.exec(content)) !== null) {
-    if (m.index > pos) {
-      result.push({ type: 'text', content: content.slice(pos, m.index).trim(), language: '' })
-    }
-    result.push({ type: 'code', content: m[2].trim(), language: m[1] || 'code' })
-    pos = m.index + m[0].length
+const getStaticPreviewUrl = () => {
+  if (app.value?.codeGenType === 'vue_project') {
+    return `${apiBase}/app-output/vue_project_${appId}/dist/index.html`
   }
-  const tail = content.slice(pos).trim()
-  if (tail) result.push({ type: 'text', content: tail, language: '' })
-  return result.filter((s) => s.content)
+  return `${apiBase}/app-output/${appId}/index.html`
+}
+
+// ---- File language helper ----
+const fileLang = (path: string): string => {
+  const ext = path.split('.').pop()?.toLowerCase() ?? ''
+  const map: Record<string, string> = {
+    vue: 'vue', js: 'javascript', ts: 'typescript',
+    html: 'html', css: 'css', json: 'json', md: 'markdown',
+  }
+  return map[ext] ?? ext
+}
+
+// ---- Chat history ----
+const fetchChatHistory = async (prepend = false) => {
+  if (loadingHistory.value) return
+  loadingHistory.value = true
+  try {
+    const params: { appId: string; pageSize: number; lastCreateTime?: number } = {
+      appId,
+      pageSize: 10,
+    }
+    if (lastCreateTime.value !== null) params.lastCreateTime = lastCreateTime.value
+
+    const res = await listAppChatHistory(params)
+    if (res.data.code === 0 && res.data.data) {
+      const records = res.data.data.records ?? []
+      hasMoreHistory.value = records.length >= 10
+
+      // Records come DESC (newest first) → reverse to chronological order for display
+      const historyMessages = [...records].reverse().map((r) => ({
+        role: (r.messageType === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: r.message ?? '',
+      }))
+
+      if (prepend) {
+        messages.value = [...historyMessages, ...messages.value]
+      } else {
+        messages.value = historyMessages
+      }
+
+      // Update cursor to the oldest message in this batch (last item in DESC list)
+      if (records.length > 0) {
+        lastCreateTime.value = Number(records[records.length - 1].createTime) || null
+      }
+    }
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
+const loadMoreHistory = async () => {
+  const scrollEl = msgListRef.value
+  const prevScrollHeight = scrollEl?.scrollHeight ?? 0
+  await fetchChatHistory(true)
+  // Restore scroll position so the view doesn't jump to top
+  await nextTick()
+  if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight - prevScrollHeight
 }
 
 // ---- App fetch ----
@@ -252,26 +332,68 @@ const sendMessage = async (text: string) => {
   const es = new EventSource(url, { withCredentials: true })
 
   es.onmessage = async (e) => {
-    streamBuffer.value += JSON.parse(e.data).d as string
+    try {
+      const msg = JSON.parse(e.data) as {
+        type: string
+        data?: string
+        name?: string
+        path?: string
+        content?: string
+      }
+      if (msg.type === 'ai_response') {
+        streamBuffer.value += msg.data ?? ''
+      } else if (msg.type === 'tool_executed') {
+        const name    = msg.name ?? ''
+        const path    = msg.path ?? ''
+        const content = msg.content ?? ''
+        if (name === 'writeFile' && path) {
+          const lang = fileLang(path)
+          const preview = content
+            ? `\`\`\`${lang}\n${content}\n\`\`\``
+            : '_No preview_'
+          streamBuffer.value += `\n[Tool] Writing file: ${path}\n${preview}\n`
+        } else if (name === 'modifyFile' && path) {
+          streamBuffer.value += `\n[Tool] Modifying file: ${path}\n`
+        } else if (name === 'exit') {
+          streamBuffer.value += `\n[Tool] Generation complete — starting build...\n`
+        }
+      }
+    } catch {
+      streamBuffer.value += e.data
+    }
     await scrollToBottom()
   }
 
-  es.addEventListener('done', () => {
+  es.addEventListener('done', async () => {
     es.close()
     streaming.value = false
     messages.value.push({ role: 'assistant', content: streamBuffer.value })
     streamBuffer.value = ''
     canDeploy.value = true
-    previewUrl.value = `${apiBase}/app-output/${appId}/index.html`
+    previewUrl.value = getStaticPreviewUrl()
+    await nextTick()
     refreshPreview()
     scrollToBottom()
   })
 
-  es.onerror = () => {
+  es.addEventListener('error', (e: MessageEvent) => {
     es.close()
     streaming.value = false
     streamBuffer.value = ''
-    message.error('Generation failed. Please try again.')
+    try {
+      const errorMsg = JSON.parse(e.data).msg as string
+      message.error(errorMsg)
+    } catch {
+      message.error('Generation failed. Please try again.')
+    }
+  })
+
+  es.onerror = () => {
+    if (!streaming.value) return
+    es.close()
+    streaming.value = false
+    streamBuffer.value = ''
+    message.error('Connection lost. Please try again.')
   }
 }
 
@@ -279,6 +401,7 @@ const doSend = async () => {
   const text = inputText.value.trim()
   if (!text || !isOwner.value) return
   inputText.value = ''
+  await nextTick()
   await sendMessage(text)
 }
 
@@ -290,6 +413,16 @@ const refreshPreview = () => {
 
 const openInNewWindow = () => {
   if (previewUrl.value) window.open(previewUrl.value, '_blank')
+}
+
+const doDownload = () => {
+  const url = `${apiBase}/app/download/${appId}`
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${appId}.zip`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
 }
 
 const doDeploy = async () => {
@@ -310,8 +443,19 @@ const doDeploy = async () => {
 
 onMounted(async () => {
   await fetchApp()
-  if (!viewOnly && messages.value.length === 0 && app.value?.initPrompt && isOwner.value) {
+  await fetchChatHistory()
+
+  // Show static preview if there are at least 2 chat records and app isn't deployed yet
+  if (messages.value.length >= 2 && !previewUrl.value) {
+    previewUrl.value = getStaticPreviewUrl()
+    canDeploy.value = true
+  }
+
+  // Auto-send initPrompt only if owner and there is no chat history yet
+  if (isOwner.value && messages.value.length === 0 && app.value?.initPrompt) {
     await sendMessage(app.value.initPrompt)
+  } else {
+    await scrollToBottom()
   }
 })
 </script>
@@ -400,6 +544,13 @@ onMounted(async () => {
   gap: 14px;
 }
 
+/* ---- Load more history ---- */
+.load-more-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 8px;
+}
+
 /* ---- User message ---- */
 .user-msg-wrap {
   display: flex;
@@ -461,62 +612,158 @@ onMounted(async () => {
   gap: 8px;
 }
 
-.ai-text {
-  font-size: 16px;
+/* ---- Markdown body ---- */
+.ai-body :deep(.markdown-body) {
+  font-size: 15px;
   color: #333;
   line-height: 1.75;
-  white-space: pre-wrap;
   word-break: break-word;
+  background: #f8f9fe;
+  border: 1px solid #eef0f8;
+  border-radius: 12px;
+  padding: 14px 16px;
 }
 
-.stream-text {
+.stream-body {
+  position: relative;
+}
+
+.ai-body :deep(.markdown-body p) {
+  margin: 0 0 10px;
+}
+.ai-body :deep(.markdown-body p:last-child) {
+  margin-bottom: 0;
+}
+
+.ai-body :deep(.markdown-body h1),
+.ai-body :deep(.markdown-body h2),
+.ai-body :deep(.markdown-body h3),
+.ai-body :deep(.markdown-body h4) {
+  margin: 14px 0 8px;
+  font-weight: 700;
+  color: #1a1a2e;
+  line-height: 1.4;
+}
+.ai-body :deep(.markdown-body h1) { font-size: 20px; }
+.ai-body :deep(.markdown-body h2) { font-size: 18px; }
+.ai-body :deep(.markdown-body h3) { font-size: 16px; }
+
+.ai-body :deep(.markdown-body ul),
+.ai-body :deep(.markdown-body ol) {
+  padding-left: 22px;
+  margin: 6px 0 10px;
+}
+.ai-body :deep(.markdown-body li) {
+  margin-bottom: 4px;
+}
+
+.ai-body :deep(.markdown-body strong) {
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.ai-body :deep(.markdown-body em) {
+  font-style: italic;
   color: #555;
 }
 
-/* ---- Code block ---- */
-.code-block {
+.ai-body :deep(.markdown-body blockquote) {
+  border-left: 3px solid #667eea;
+  padding: 4px 0 4px 12px;
+  margin: 8px 0;
+  color: #666;
+  font-style: italic;
+}
+
+.ai-body :deep(.markdown-body hr) {
+  border: none;
+  border-top: 1px solid #e4e6ee;
+  margin: 12px 0;
+}
+
+/* Inline code */
+.ai-body :deep(.markdown-body code:not(pre code)) {
+  background: #eef0f8;
+  border: 1px solid #dde0ee;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 13px;
+  color: #c7254e;
+}
+
+/* Code blocks */
+.ai-body :deep(.markdown-body pre) {
+  margin: 10px 0;
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid #2d2d2d;
-}
-
-.code-header {
-  background: #2d2d2d;
-  padding: 6px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.code-lang {
-  font-size: 12px;
-  color: #858585;
-  font-family: 'SFMono-Regular', Consolas, monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.code-content {
-  margin: 0;
-  background: #1e1e1e;
-  padding: 12px 14px;
-  overflow-x: auto;
-  max-height: 280px;
+  max-height: 320px;
   overflow-y: auto;
 }
 
-.code-content code {
+.ai-body :deep(.markdown-body pre code) {
+  display: block;
+  padding: 12px 14px;
   font-family: 'SFMono-Regular', Consolas, 'Courier New', monospace;
-  font-size: 14px;
-  color: #d4d4d4;
+  font-size: 13.5px;
   line-height: 1.6;
   white-space: pre;
+  overflow-x: auto;
 }
 
-/* ---- Blinking cursor ---- */
-.cursor {
+/* Table */
+.ai-body :deep(.markdown-body table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 10px 0;
+  font-size: 14px;
+}
+.ai-body :deep(.markdown-body th),
+.ai-body :deep(.markdown-body td) {
+  border: 1px solid #dde0ee;
+  padding: 6px 10px;
+  text-align: left;
+}
+.ai-body :deep(.markdown-body th) {
+  background: #eef0f8;
+  font-weight: 600;
+}
+
+/* ---- Thinking indicator ---- */
+.thinking {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  color: #888;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #aaa;
+  animation: bounce 1.2s ease-in-out infinite;
+}
+
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40%           { transform: translateY(-6px); opacity: 1; }
+}
+
+/* ---- Blinking cursor on streaming body ---- */
+.stream-body::after {
+  content: '▋';
   display: inline-block;
+  color: #667eea;
   animation: blink 0.8s step-end infinite;
+  font-size: 14px;
+  vertical-align: middle;
+  margin-left: 2px;
 }
 
 @keyframes blink {

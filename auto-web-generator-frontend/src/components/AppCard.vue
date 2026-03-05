@@ -1,7 +1,7 @@
 <template>
   <div class="app-card" @click="goChat">
     <div class="app-cover">
-      <img v-if="app.cover" :src="app.cover" :alt="app.appName" />
+      <img v-if="coverSrc" :src="coverSrc" :alt="app.appName" />
       <div v-else class="cover-placeholder">
         <div class="cover-icon"><CodeOutlined /></div>
       </div>
@@ -22,11 +22,25 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { CodeOutlined } from '@ant-design/icons-vue'
 
 const props = defineProps<{ app: API.AppVO }>()
 const router = useRouter()
+
+// Strip /api suffix to get bare host (e.g. "http://localhost:8123")
+const apiBase = (import.meta.env.VITE_API_BASE ?? 'http://localhost:8123/api') as string
+const apiHost = apiBase.replace(/\/api$/, '')
+
+// Resolve cover URL: absolute URLs (https://...) pass through as-is;
+// relative paths (/api/covers/...) get the host prepended.
+const coverSrc = computed(() => {
+  const cover = props.app.cover
+  if (!cover) return ''
+  if (cover.startsWith('http')) return cover
+  return apiHost + cover
+})
 
 const goChat = () => router.push(`/app/chat/${props.app.id}?view=1`)
 const viewWork = () => window.open(`http://localhost/${props.app.deployKey}`, '_blank')
