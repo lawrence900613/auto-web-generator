@@ -1,11 +1,11 @@
-// @ts-ignore
-/* eslint-disable */
+﻿/* eslint-disable */
 import request from '@/request'
 
-/** 此处后端没有提供注释 GET /health/ */
+/** Health check endpoint GET /health/ */
 export async function healthCheck(options?: { [key: string]: any }) {
   return request<API.ApiResponseString>('/health/', {
     method: 'GET',
     ...(options || {}),
   })
 }
+

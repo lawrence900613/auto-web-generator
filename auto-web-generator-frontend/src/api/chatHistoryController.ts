@@ -1,5 +1,4 @@
-// @ts-ignore
-/* eslint-disable */
+﻿ 
 import request from '@/request'
 
 /** Get chat history for an app (cursor-based) GET /chat-history/app/{appId} */
@@ -26,3 +25,4 @@ export async function listAllChatHistoryForAdmin(params: {
     params,
   })
 }
+

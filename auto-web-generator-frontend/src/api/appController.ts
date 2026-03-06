@@ -1,5 +1,4 @@
-// @ts-ignore
-/* eslint-disable */
+﻿ 
 import request from '@/request'
 
 /** Create an app POST /app/add */
@@ -97,3 +96,4 @@ export async function listAppVoByPageByAdmin(body: API.AppQueryRequest) {
     data: body,
   })
 }
+

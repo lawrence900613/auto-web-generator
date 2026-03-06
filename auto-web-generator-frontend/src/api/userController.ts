@@ -1,5 +1,4 @@
-// @ts-ignore
-/* eslint-disable */
+﻿ 
 import request from '@/request'
 
 /** Register a new account POST /user/register */
@@ -77,3 +76,4 @@ export async function listUserVoByPage(body: API.UserQueryRequest) {
     data: body,
   })
 }
+
