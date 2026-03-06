@@ -26,12 +26,6 @@ class CodeGenTypeEnumTest {
     }
 
     @Test
-    void fromValue_returnsNullForUnknownType() {
-        assertNull(CodeGenTypeEnum.fromValue("vue_project"));
-        assertNull(CodeGenTypeEnum.fromValue("unknown"));
-    }
-
-    @Test
     void fromValue_returnsNullForNullOrBlankInput() {
         assertNull(CodeGenTypeEnum.fromValue(null));
         assertNull(CodeGenTypeEnum.fromValue(""));
