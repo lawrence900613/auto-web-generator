@@ -7,6 +7,7 @@ import com.example.autowebgenerator.ai.model.HtmlCodeResult;
 import com.example.autowebgenerator.ai.model.MultiFileCodeResult;
 import com.example.autowebgenerator.ai.model.message.AiResponseMessage;
 import com.example.autowebgenerator.ai.model.message.ToolExecutedMessage;
+import com.example.autowebgenerator.ai.model.message.ToolRequestMessage;
 import com.example.autowebgenerator.core.builder.VueProjectBuilder;
 import com.example.autowebgenerator.exception.ErrorCode;
 import com.example.autowebgenerator.exception.ServiceException;
@@ -162,17 +163,37 @@ public class AiCodeGeneratorFacade {
             TokenStream tokenStream = service.generateVueProjectCodeStream(appId, userMessage);
             tokenStream
                     .onPartialResponse(token -> emitter.next(aiChunk(token)))
-                    .onToolExecuted(toolExecution ->
-                            emitter.next(JSONUtil.toJsonStr(new ToolExecutedMessage(toolExecution))))
+                    .onToolExecuted(toolExecution -> {
+                            emitter.next(JSONUtil.toJsonStr(new ToolRequestMessage(toolExecution)));
+                            emitter.next(JSONUtil.toJsonStr(new ToolExecutedMessage(toolExecution)));
+                    })
                     .onCompleteResponse(response -> {
                         emitter.next(aiChunk("\n\nBuilding Vue project (npm install + npm run build)...\n"));
                         Thread buildThread = new Thread(() -> {
                             String projectPath = VueProjectBuilder.projectPath(appId);
+                            // Send heartbeat every 5 s so the SSE connection stays alive
+                            // during the potentially long npm install + build phase.
+                            java.util.concurrent.atomic.AtomicBoolean buildDone =
+                                    new java.util.concurrent.atomic.AtomicBoolean(false);
+                            Thread heartbeat = new Thread(() -> {
+                                int elapsed = 0;
+                                while (!buildDone.get()) {
+                                    try { Thread.sleep(5000); } catch (InterruptedException ie) { break; }
+                                    if (!buildDone.get()) {
+                                        elapsed += 5;
+                                        emitter.next(aiChunk("Building... " + elapsed + "s elapsed\n"));
+                                    }
+                                }
+                            });
+                            heartbeat.setDaemon(true);
+                            heartbeat.start();
                             try {
                                 vueProjectBuilder.buildProject(projectPath);
+                                buildDone.set(true);
                                 emitter.next(aiChunk("Build complete! Your Vue app is ready to preview.\n"));
                                 emitter.complete();
                             } catch (Exception buildErr) {
+                                buildDone.set(true);
                                 log.warn("VUE_PROJECT build failed (attempt 1) for app {} — trying auto-fix", appId);
                                 emitter.next(aiChunk("\nBuild error detected. Asking AI to fix the code...\n"));
                                 try {
@@ -183,7 +204,23 @@ public class AiCodeGeneratorFacade {
                                             buildErr.getMessage();
                                     service.fixVueProjectCode(appId, fixPrompt);
                                     emitter.next(aiChunk("Applying fixes and rebuilding...\n"));
+                                    // New heartbeat for the retry build
+                                    java.util.concurrent.atomic.AtomicBoolean retryDone =
+                                            new java.util.concurrent.atomic.AtomicBoolean(false);
+                                    Thread retryHeartbeat = new Thread(() -> {
+                                        int e2 = 0;
+                                        while (!retryDone.get()) {
+                                            try { Thread.sleep(5000); } catch (InterruptedException ie) { break; }
+                                            if (!retryDone.get()) {
+                                                e2 += 5;
+                                                emitter.next(aiChunk("Rebuilding... " + e2 + "s elapsed\n"));
+                                            }
+                                        }
+                                    });
+                                    retryHeartbeat.setDaemon(true);
+                                    retryHeartbeat.start();
                                     vueProjectBuilder.buildProject(projectPath);
+                                    retryDone.set(true);
                                     emitter.next(aiChunk("Build complete! Your Vue app is ready to preview.\n"));
                                     emitter.complete();
                                 } catch (Exception retryErr) {

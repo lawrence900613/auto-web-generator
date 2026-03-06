@@ -4,7 +4,10 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.example.autowebgenerator.ai.tool.BaseTool;
+import com.example.autowebgenerator.ai.tool.ToolManager;
 import com.example.autowebgenerator.constant.UserConstant;
 import com.example.autowebgenerator.core.AiCodeGeneratorFacade;
 import com.example.autowebgenerator.core.CodeFileSaver;
@@ -54,6 +57,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private AppCoverService appCoverService;
+
+    @Resource
+    private ToolManager toolManager;
 
     @Override
     public AppVO getAppVO(App app) {
@@ -119,24 +125,45 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         chatHistoryService.addChatMessage(appId, message, MessageTypeEnum.USER.getValue(), loginUser.getId());
 
         StringBuilder aiResponseBuilder = new StringBuilder();
+        // Track seen tool IDs to emit tool request display only once per tool call
+        java.util.Set<String> seenToolIds = new java.util.HashSet<>();
         return aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId)
                 .map(chunk -> {
                     // Each chunk is typed JSON: {"type":"ai_response","data":"..."} or
-                    // {"type":"tool_executed","id":"...","name":"...","result":"OK: path"}
-                    // Build a clean DB string while passing the original typed chunk downstream.
+                    // {"type":"tool_request","id":"...","name":"..."} or
+                    // {"type":"tool_executed","id":"...","name":"...","arguments":"..."}
+                    // A "display" field is added to tool chunks so the frontend renders
+                    // exactly the same content that gets saved to chat history.
                     try {
                         var json = JSONUtil.parseObj(chunk);
                         String type = json.getStr("type");
                         if ("ai_response".equals(type)) {
                             aiResponseBuilder.append(json.getStr("data"));
+                            return chunk;
+                        } else if ("tool_request".equals(type)) {
+                            String toolId   = json.getStr("id");
+                            String toolName = json.getStr("name");
+                            if (toolId != null && !seenToolIds.contains(toolId)) {
+                                seenToolIds.add(toolId);
+                                BaseTool tool = toolManager.getTool(toolName);
+                                if (tool != null) {
+                                    String display = tool.generateToolRequestResponse();
+                                    aiResponseBuilder.append(display);
+                                    json.set("display", display);
+                                    return json.toString();
+                                }
+                            }
                         } else if ("tool_executed".equals(type)) {
-                            String path    = json.getStr("path");
-                            String content = json.getStr("content");
-                            String lang    = fileLang(path);
-                            aiResponseBuilder.append("\n[Tool] Writing file: ").append(path)
-                                    .append("\n```").append(lang).append("\n")
-                                    .append(content)
-                                    .append("\n```\n");
+                            String toolName  = json.getStr("name");
+                            String arguments = json.getStr("arguments");
+                            BaseTool tool = toolManager.getTool(toolName);
+                            if (tool != null && arguments != null) {
+                                JSONObject args = JSONUtil.parseObj(arguments);
+                                String display = tool.generateToolExecutedResult(args);
+                                aiResponseBuilder.append(String.format("\n\n%s\n\n", display));
+                                json.set("display", display);
+                                return json.toString();
+                            }
                         }
                     } catch (Exception ignored) {
                         aiResponseBuilder.append(chunk);
@@ -212,19 +239,4 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         return super.removeById(id);
     }
 
-    /** Maps a file extension to a fenced-code-block language tag. */
-    private static String fileLang(String path) {
-        if (path == null) return "";
-        int dot = path.lastIndexOf('.');
-        if (dot < 0) return "";
-        return switch (path.substring(dot + 1).toLowerCase()) {
-            case "vue"  -> "vue";
-            case "js"   -> "javascript";
-            case "ts"   -> "typescript";
-            case "html" -> "html";
-            case "css"  -> "css";
-            case "json" -> "json";
-            default     -> path.substring(dot + 1);
-        };
-    }
 }

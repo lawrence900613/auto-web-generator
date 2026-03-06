@@ -72,18 +72,38 @@
                 <span class="dot" /><span class="dot" /><span class="dot" />
                 AI is thinking...
               </div>
-              <div v-else class="markdown-body stream-body" v-html="renderMarkdown(streamBuffer)" />
+              <div class="markdown-body stream-body" v-html="renderMarkdown(streamBuffer)" />
+              <div class="stream-working">
+                <span class="dot" /><span class="dot" /><span class="dot" />
+                Writing files...
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Input -->
         <div class="input-wrap">
+          <!-- Selected element info -->
+          <a-alert
+            v-if="selectedElementInfo"
+            class="element-alert"
+            type="info"
+            closable
+            @close="clearSelectedElement"
+          >
+            <template #message>
+              <span class="element-alert-tag">{{ selectedElementInfo.tagName.toLowerCase() }}</span>
+              <span v-if="selectedElementInfo.id" class="element-alert-id">#{{ selectedElementInfo.id }}</span>
+              <span v-if="selectedElementInfo.className" class="element-alert-class">.{{ selectedElementInfo.className.split(' ').filter(Boolean).join('.') }}</span>
+              <span v-if="selectedElementInfo.textContent" class="element-alert-text"> — {{ selectedElementInfo.textContent.substring(0, 60) }}{{ selectedElementInfo.textContent.length > 60 ? '…' : '' }}</span>
+            </template>
+          </a-alert>
+
           <a-tooltip :title="!isOwner ? 'Cannot chat in someone else\'s app' : ''">
             <div class="input-card" :class="{ focused: inputFocused }">
               <a-textarea
                 v-model:value="inputText"
-                :placeholder="isOwner ? 'Describe the website you want — more detail means better results' : 'Only the app owner can send messages'"
+                :placeholder="selectedElementInfo ? `Editing ${selectedElementInfo.tagName.toLowerCase()} element — describe the change you want` : isOwner ? 'Describe the website you want — more detail means better results' : 'Only the app owner can send messages'"
                 :auto-size="{ minRows: 3, maxRows: 1000 }"
                 :disabled="streaming || !isOwner"
                 @focus="inputFocused = true"
@@ -111,6 +131,16 @@
         <div class="preview-header">
           <span class="preview-label">Generated Website</span>
           <div class="preview-actions">
+            <a-button
+              v-if="isOwner && previewUrl && !streaming"
+              :type="isEditMode ? 'primary' : 'default'"
+              :ghost="isEditMode"
+              size="small"
+              @click="toggleEditMode"
+            >
+              <template #icon><EditOutlined /></template>
+              {{ isEditMode ? 'Exit Edit' : 'Edit Mode' }}
+            </a-button>
             <a-button type="text" :disabled="!previewUrl" @click="refreshPreview">
               <template #icon><ReloadOutlined /></template>
               Refresh
@@ -127,6 +157,7 @@
           :src="previewUrl"
           class="preview-iframe"
           sandbox="allow-scripts allow-same-origin"
+          @load="onIframeLoad"
         />
         <div v-else-if="streaming" class="preview-generating">
           <div class="generating-anim">
@@ -168,7 +199,9 @@ import {
   ArrowUpOutlined,
   ReloadOutlined,
   ExportOutlined,
+  EditOutlined,
 } from '@ant-design/icons-vue'
+import { VisualEditor, type ElementInfo } from '@/utils/visualEditor'
 import { marked } from 'marked'
 import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js'
@@ -221,6 +254,13 @@ const hasMoreHistory = ref(false)
 const loadingHistory = ref(false)
 const lastCreateTime = ref<number | null>(null)
 
+// Visual editor
+const isEditMode = ref(false)
+const selectedElementInfo = ref<ElementInfo | null>(null)
+const visualEditor = new VisualEditor({
+  onElementSelected: (info: ElementInfo) => { selectedElementInfo.value = info },
+})
+
 const isOwner = computed(
   () =>
     loginUserStore.loginUser?.id != null &&
@@ -244,15 +284,6 @@ const getStaticPreviewUrl = () => {
   return `${apiBase}/app-output/${appId}/index.html`
 }
 
-// ---- File language helper ----
-const fileLang = (path: string): string => {
-  const ext = path.split('.').pop()?.toLowerCase() ?? ''
-  const map: Record<string, string> = {
-    vue: 'vue', js: 'javascript', ts: 'typescript',
-    html: 'html', css: 'css', json: 'json', md: 'markdown',
-  }
-  return map[ext] ?? ext
-}
 
 // ---- Chat history ----
 const fetchChatHistory = async (prepend = false) => {
@@ -306,9 +337,6 @@ const fetchApp = async () => {
   const res = await getAppVoById({ id: appId })
   if (res.data.code === 0 && res.data.data) {
     app.value = res.data.data
-    if (res.data.data.deployKey) {
-      previewUrl.value = `${apiBase}/deploy/${res.data.data.deployKey}/index.html`
-    }
   } else {
     message.error(res.data.message ?? 'App not found')
     router.push('/')
@@ -336,27 +364,12 @@ const sendMessage = async (text: string) => {
       const msg = JSON.parse(e.data) as {
         type: string
         data?: string
-        name?: string
-        path?: string
-        content?: string
+        display?: string
       }
       if (msg.type === 'ai_response') {
         streamBuffer.value += msg.data ?? ''
-      } else if (msg.type === 'tool_executed') {
-        const name    = msg.name ?? ''
-        const path    = msg.path ?? ''
-        const content = msg.content ?? ''
-        if (name === 'writeFile' && path) {
-          const lang = fileLang(path)
-          const preview = content
-            ? `\`\`\`${lang}\n${content}\n\`\`\``
-            : '_No preview_'
-          streamBuffer.value += `\n[Tool] Writing file: ${path}\n${preview}\n`
-        } else if (name === 'modifyFile' && path) {
-          streamBuffer.value += `\n[Tool] Modifying file: ${path}\n`
-        } else if (name === 'exit') {
-          streamBuffer.value += `\n[Tool] Generation complete — starting build...\n`
-        }
+      } else if (msg.display) {
+        streamBuffer.value += msg.display
       }
     } catch {
       streamBuffer.value += e.data
@@ -398,11 +411,35 @@ const sendMessage = async (text: string) => {
 }
 
 const doSend = async () => {
-  const text = inputText.value.trim()
+  let text = inputText.value.trim()
   if (!text || !isOwner.value) return
   inputText.value = ''
+
+  // Append selected element context to the prompt
+  if (selectedElementInfo.value) {
+    const el = selectedElementInfo.value
+    let ctx = `\n\nSelected element:`
+    if (el.pagePath) ctx += `\n- Page path: ${el.pagePath}`
+    ctx += `\n- Tag: ${el.tagName.toLowerCase()}\n- Selector: ${el.selector}`
+    if (el.textContent) ctx += `\n- Current content: ${el.textContent.substring(0, 100)}`
+    text += ctx
+    clearSelectedElement()
+    if (isEditMode.value) toggleEditMode()
+  }
+
   await nextTick()
   await sendMessage(text)
+}
+
+const toggleEditMode = () => {
+  if (!iframeRef.value) { return }
+  visualEditor.init(iframeRef.value)
+  isEditMode.value = visualEditor.toggleEditMode()
+}
+
+const clearSelectedElement = () => {
+  selectedElementInfo.value = null
+  visualEditor.clearSelection()
 }
 
 const refreshPreview = () => {
@@ -441,12 +478,20 @@ const doDeploy = async () => {
 }
 
 
+const onIframeLoad = () => {
+  if (iframeRef.value) {
+    visualEditor.init(iframeRef.value)
+    visualEditor.onIframeLoad()
+  }
+}
+
 onMounted(async () => {
+  window.addEventListener('message', (e) => visualEditor.handleIframeMessage(e))
   await fetchApp()
   await fetchChatHistory()
 
-  // Show static preview if there are at least 2 chat records and app isn't deployed yet
-  if (messages.value.length >= 2 && !previewUrl.value) {
+  // Show static preview if there are at least 2 chat records
+  if (messages.value.length >= 2) {
     previewUrl.value = getStaticPreviewUrl()
     canDeploy.value = true
   }
@@ -750,6 +795,15 @@ onMounted(async () => {
 .dot:nth-child(2) { animation-delay: 0.2s; }
 .dot:nth-child(3) { animation-delay: 0.4s; }
 
+.stream-working {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: #aaa;
+}
+
 @keyframes bounce {
   0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
   40%           { transform: translateY(-6px); opacity: 1; }
@@ -812,6 +866,33 @@ onMounted(async () => {
   width: 30px !important;
   height: 30px !important;
   min-width: 30px !important;
+}
+
+.element-alert {
+  margin-bottom: 8px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.element-alert-tag {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-weight: 600;
+  color: #1677ff;
+}
+
+.element-alert-id {
+  color: #389e0d;
+  margin-left: 2px;
+}
+
+.element-alert-class {
+  color: #d46b08;
+  margin-left: 2px;
+}
+
+.element-alert-text {
+  color: #555;
+  margin-left: 4px;
 }
 
 /* ===== Right: preview panel ===== */

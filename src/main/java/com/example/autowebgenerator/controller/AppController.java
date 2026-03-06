@@ -18,9 +18,11 @@ import com.example.autowebgenerator.service.UserService;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import cn.hutool.json.JSONUtil;
+import dev.langchain4j.model.chat.ChatModel;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +33,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/app")
 public class AppController {
@@ -43,6 +46,9 @@ public class AppController {
 
     @Resource
     private com.example.autowebgenerator.service.ProjectDownloadService projectDownloadService;
+
+    @Resource(name = "plainChatModel")
+    private ChatModel plainChatModel;
 
     // -------------------------------------------------------------------------
     // User endpoints
@@ -59,8 +65,7 @@ public class AppController {
         App app = new App();
         app.setInitPrompt(initPrompt);
         app.setUserId(loginUser.getId());
-        // Default name = first 40 chars of initPrompt
-        app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 40)));
+        app.setAppName(generateAppName(initPrompt));
         app.setCodeGenType(CodeGenTypeEnum.VUE_PROJECT.getValue());
         app.setPriority(AppConstant.DEFAULT_APP_PRIORITY);
         app.setIsDelete(0);
@@ -256,5 +261,30 @@ public class AppController {
         Page<AppVO> voPage = new Page<>(request.getPage(), request.getSize(), appPage.getTotalRow());
         voPage.setRecords(appService.getAppVOList(appPage.getRecords()));
         return ApiResponseUtils.success(voPage);
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Asks the AI to generate a short, descriptive app name from the user's prompt.
+     * Falls back to a truncated version of the prompt if the AI call fails.
+     */
+    private String generateAppName(String initPrompt) {
+        try {
+            String aiName = plainChatModel.chat(
+                    "Generate a short, descriptive app name (3-6 words, Title Case) that captures " +
+                    "the essence of the following website/app idea. Reply with ONLY the name, " +
+                    "no punctuation, no quotes, nothing else.\n\nIdea: " + initPrompt
+            );
+            String trimmed = aiName == null ? "" : aiName.strip().replaceAll("[\"']", "");
+            if (!trimmed.isBlank() && trimmed.length() <= 60) {
+                return trimmed;
+            }
+        } catch (Exception e) {
+            log.warn("AI app name generation failed, falling back to prompt prefix: {}", e.getMessage());
+        }
+        return initPrompt.substring(0, Math.min(initPrompt.length(), 40));
     }
 }

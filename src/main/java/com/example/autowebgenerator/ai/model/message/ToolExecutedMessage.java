@@ -48,11 +48,15 @@ public class ToolExecutedMessage extends StreamMessage {
     /** Raw return value from the tool, e.g. "OK: src/App.vue (saved to disk...)". */
     private String result;
 
+    /** Raw arguments JSON string — used by ToolManager.generateToolExecutedResult(). */
+    private String arguments;
+
     public ToolExecutedMessage(ToolExecution toolExecution) {
         super(StreamMessageTypeEnum.TOOL_EXECUTED.getValue());
         this.id = toolExecution.request().id();
         this.name = toolExecution.request().name();
         this.result = toolExecution.result();
+        this.arguments = toolExecution.request().arguments();
 
         // Parse arguments JSON: {"relativePath": "...", "content": "..."}
         try {

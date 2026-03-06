@@ -14,6 +14,7 @@ import lombok.Getter;
 public enum StreamMessageTypeEnum {
 
     AI_RESPONSE("ai_response"),
+    TOOL_REQUEST("tool_request"),
     TOOL_EXECUTED("tool_executed");
 
     private final String value;

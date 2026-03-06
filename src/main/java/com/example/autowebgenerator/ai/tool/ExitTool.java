@@ -1,8 +1,10 @@
 package com.example.autowebgenerator.ai.tool;
 
+import cn.hutool.json.JSONObject;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 /**
  * Signals that the AI has finished writing all files and generation is complete.
@@ -13,7 +15,19 @@ import lombok.extern.slf4j.Slf4j;
  * structured signal rather than free-form text to interpret.
  */
 @Slf4j
-public class ExitTool {
+@Component
+public class ExitTool extends BaseTool {
+
+    @Override
+    public String getToolName() { return "exit"; }
+
+    @Override
+    public String getDisplayName() { return "Generation Complete"; }
+
+    @Override
+    public String generateToolExecutedResult(JSONObject arguments) {
+        return String.format("[Tool] %s", getDisplayName());
+    }
 
     @Tool("Call this tool once ALL project files have been written. It signals the end of code generation and must be the LAST tool call.")
     public String exit(@ToolMemoryId Long appId) {

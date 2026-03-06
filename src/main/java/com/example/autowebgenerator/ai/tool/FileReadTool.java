@@ -1,11 +1,13 @@
 package com.example.autowebgenerator.ai.tool;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.json.JSONObject;
 import com.example.autowebgenerator.core.builder.VueProjectBuilder;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -17,7 +19,20 @@ import java.nio.charset.StandardCharsets;
  * deciding exactly what to replace with modifyFile.
  */
 @Slf4j
-public class FileReadTool {
+@Component
+public class FileReadTool extends BaseTool {
+
+    @Override
+    public String getToolName() { return "readFile"; }
+
+    @Override
+    public String getDisplayName() { return "Read File"; }
+
+    @Override
+    public String generateToolExecutedResult(JSONObject arguments) {
+        String path = arguments.getStr("relativePath");
+        return String.format("[Tool] %s %s", getDisplayName(), path);
+    }
 
     @Tool("Read the current content of a file in the project. Use before modifyFile to verify the exact text to replace.")
     public String readFile(

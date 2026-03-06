@@ -27,7 +27,13 @@
           <div v-if="loginUserStore.loginUser?.id">
             <a-dropdown>
               <a-space>
-                <a-avatar :src="loginUserStore.loginUser.userAvatar" />
+                <a-avatar
+                  v-if="loginUserStore.loginUser.userAvatar"
+                  :src="loginUserStore.loginUser.userAvatar"
+                />
+                <span v-else class="user-avatar-initials">
+                  {{ userInitial }}
+                </span>
                 {{ loginUserStore.loginUser.userName ?? 'Anonymous' }}
               </a-space>
               <template #overlay>
@@ -62,6 +68,11 @@ import ACCESS_ENUM from '@/access/accessEnum'
 
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
+
+const userInitial = computed(() => {
+  const name = loginUserStore.loginUser?.userName ?? ''
+  return name.charAt(0).toUpperCase() || '?'
+})
 
 const selectedKeys = ref<string[]>(['/'])
 router.afterEach((to) => {
@@ -171,6 +182,22 @@ const doLogout = async () => {
   width: 36px !important;
   height: 36px !important;
   line-height: 36px !important;
+}
+
+.user-avatar-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6a8fd8 0%, #9b6ed4 50%, #d4509a 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  flex-shrink: 0;
+  letter-spacing: 0;
+  user-select: none;
 }
 
 :deep(.ant-space) {

@@ -115,6 +115,8 @@ const router = createRouter({
 - Use writeFile() for every file — do NOT output file content as plain text or markdown
 - After ALL files are written, call exit() — this is MANDATORY and triggers the build
 - For fix requests: use readDir()/readFile() to inspect first, then prefer modifyFile() over a full writeFile() rewrite
+- For incremental changes: use readDir() to understand the project structure, readFile() to read existing code, modifyFile() to replace specific sections, deleteFile() to remove unneeded files, and writeFile() only for new files
+- IMPORTANT: The tools are the only way to operate on files. Even if the framework seems to handle tool calls automatically, you MUST explicitly call each tool yourself — do NOT assume any file operation happened without calling the corresponding tool
 
 ## Output Structure
 

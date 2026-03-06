@@ -1,10 +1,6 @@
 package com.example.autowebgenerator.ai;
 
-import com.example.autowebgenerator.ai.tool.ExitTool;
-import com.example.autowebgenerator.ai.tool.FileDirReadTool;
-import com.example.autowebgenerator.ai.tool.FileModifyTool;
-import com.example.autowebgenerator.ai.tool.FileReadTool;
-import com.example.autowebgenerator.ai.tool.FileWriteTool;
+import com.example.autowebgenerator.ai.tool.ToolManager;
 import com.example.autowebgenerator.model.enums.CodeGenTypeEnum;
 import com.example.autowebgenerator.service.ChatHistoryService;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -56,6 +52,9 @@ public class AiCodeGeneratorServiceFactory {
     @Lazy
     @Resource
     private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private ToolManager toolManager;
 
     /** AI service instance cache keyed by "{appId}_{codeGenType}" */
     private final Cache<String, AiCodeGeneratorService> serviceCache = Caffeine.newBuilder()
@@ -119,8 +118,7 @@ public class AiCodeGeneratorServiceFactory {
                         .chatModel(syncModel)
                         .streamingChatModel(reasoningStreamingChatModel)
                         .chatMemoryProvider(id -> chatMemory)
-                        .tools(new FileWriteTool(), new ExitTool(),
-                                new FileModifyTool(), new FileReadTool(), new FileDirReadTool())
+                        .tools((Object[]) toolManager.getAllTools())
                         .hallucinatedToolNameStrategy(req ->
                                 ToolExecutionResultMessage.from(req,
                                         "Error: there is no tool called " + req.name()))

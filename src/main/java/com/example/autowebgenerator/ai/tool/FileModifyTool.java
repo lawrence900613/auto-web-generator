@@ -1,11 +1,13 @@
 package com.example.autowebgenerator.ai.tool;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.json.JSONObject;
 import com.example.autowebgenerator.core.builder.VueProjectBuilder;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -18,7 +20,23 @@ import java.nio.charset.StandardCharsets;
  * This reduces token usage and lowers the risk of introducing new bugs.
  */
 @Slf4j
-public class FileModifyTool {
+@Component
+public class FileModifyTool extends BaseTool {
+
+    @Override
+    public String getToolName() { return "modifyFile"; }
+
+    @Override
+    public String getDisplayName() { return "Modify File"; }
+
+    @Override
+    public String generateToolExecutedResult(JSONObject arguments) {
+        String path = arguments.getStr("relativePath");
+        String oldContent = arguments.getStr("oldContent");
+        String newContent = arguments.getStr("newContent");
+        return String.format("[Tool] %s %s\n\nBefore:\n```\n%s\n```\n\nAfter:\n```\n%s\n```",
+                getDisplayName(), path, oldContent, newContent);
+    }
 
     @Tool("Modify a specific section of an existing project file by replacing oldContent with newContent. " +
           "Prefer this over writeFile when fixing targeted errors.")

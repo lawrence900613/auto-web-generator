@@ -1,11 +1,14 @@
 package com.example.autowebgenerator.ai.tool;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONObject;
 import com.example.autowebgenerator.core.builder.VueProjectBuilder;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.util.List;
@@ -17,7 +20,21 @@ import java.util.List;
  * deciding whether to modify or rewrite them.
  */
 @Slf4j
-public class FileDirReadTool {
+@Component
+public class FileDirReadTool extends BaseTool {
+
+    @Override
+    public String getToolName() { return "readDir"; }
+
+    @Override
+    public String getDisplayName() { return "Read Directory"; }
+
+    @Override
+    public String generateToolExecutedResult(JSONObject arguments) {
+        String dir = arguments.getStr("dir");
+        if (StrUtil.isEmpty(dir) || ".".equals(dir)) dir = "project root";
+        return String.format("[Tool] %s %s", getDisplayName(), dir);
+    }
 
     private static final List<String> SKIP_DIRS = List.of("node_modules", ".git", "dist", "build");
 

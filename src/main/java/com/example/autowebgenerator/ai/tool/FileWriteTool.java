@@ -1,11 +1,13 @@
 package com.example.autowebgenerator.ai.tool;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.json.JSONObject;
 import com.example.autowebgenerator.core.builder.VueProjectBuilder;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -18,7 +20,22 @@ import java.nio.charset.StandardCharsets;
  * service method — no constructor injection required.
  */
 @Slf4j
-public class FileWriteTool {
+@Component
+public class FileWriteTool extends BaseTool {
+
+    @Override
+    public String getToolName() { return "writeFile"; }
+
+    @Override
+    public String getDisplayName() { return "Write File"; }
+
+    @Override
+    public String generateToolExecutedResult(JSONObject arguments) {
+        String path = arguments.getStr("relativePath");
+        String suffix = FileUtil.getSuffix(path);
+        String content = arguments.getStr("content");
+        return String.format("[Tool] %s %s\n```%s\n%s\n```", getDisplayName(), path, suffix, content);
+    }
 
     @Tool("Write a single file to the Vue project. Call this once for every file in the project.")
     public String writeFile(
