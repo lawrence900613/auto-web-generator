@@ -26,7 +26,7 @@ public class App implements Serializable {
 
     private String initPrompt;
 
-    /** Code generation type: "html" | "multi_file" */
+    /** Code generation type: currently "vue_project" only (legacy modes disabled). */
     private String codeGenType;
 
     /** 6-char alphanumeric deploy identifier */

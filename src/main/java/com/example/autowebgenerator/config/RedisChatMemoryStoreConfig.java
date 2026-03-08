@@ -17,6 +17,7 @@ public class RedisChatMemoryStoreConfig {
 
     private String host;
     private int port;
+    private String username;
     private String password;
     private long ttl;
 
@@ -27,6 +28,8 @@ public class RedisChatMemoryStoreConfig {
                 .port(port)
                 .ttl(ttl);
         if (password != null && !password.isBlank()) {
+            // Redis 6/7 ACL auth: set explicit user to avoid NOAUTH with password-only connections.
+            builder.user((username == null || username.isBlank()) ? "default" : username);
             builder.password(password);
         }
         return builder.build();

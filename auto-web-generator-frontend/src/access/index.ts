@@ -10,6 +10,12 @@ import checkAccess from './checkAccess'
  * - Redirects to /noAuth if the user lacks the required role.
  */
 router.beforeEach(async (to, _from, next) => {
+  // Temporary switch: disable all admin routes.
+  if (to.path.startsWith('/admin')) {
+    next('/noAuth')
+    return
+  }
+
   // Pinia must be initialised inside the callback (not at module level)
   const loginUserStore = useLoginUserStore()
   let loginUser = loginUserStore.loginUser

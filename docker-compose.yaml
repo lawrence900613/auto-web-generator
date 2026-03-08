@@ -1,0 +1,67 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: awg-redis
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-redis123}"]
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/docker/backend/Dockerfile
+    container_name: awg-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_USERNAME: default
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1}
+      OPENAI_REASONING_MODEL: ${OPENAI_REASONING_MODEL:-gpt-5-mini}
+      SERVER_SERVLET_SESSION_COOKIE_SAME_SITE: ${SERVER_SERVLET_SESSION_COOKIE_SAME_SITE:-Lax}
+      SERVER_SERVLET_SESSION_COOKIE_SECURE: ${SERVER_SERVLET_SESSION_COOKIE_SECURE:-false}
+    volumes:
+      - app_tmp:/app/tmp
+    depends_on:
+      - redis
+    ports:
+      - "8123:8123"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: deploy/docker/frontend/Dockerfile
+    container_name: awg-frontend
+    environment:
+      VITE_API_BASE: ${VITE_API_BASE:-/api}
+      VITE_DEPLOY_DOMAIN: ${VITE_DEPLOY_DOMAIN:-http://localhost}
+      VITE_PROXY_TARGET: ${VITE_PROXY_TARGET:-http://backend:8123}
+    ports:
+      - "5173:5173"
+    restart: unless-stopped
+
+  nginx:
+    profiles: ["nginx"]
+    build:
+      context: .
+      dockerfile: deploy/docker/nginx/Dockerfile
+    container_name: awg-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - app_tmp:/var/www/generated
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  app_tmp:

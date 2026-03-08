@@ -3,51 +3,69 @@ package com.example.autowebgenerator.utils;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.openqa.selenium.*;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
+import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeDriverService;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.stereotype.Component;
 
-import javax.imageio.*;
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
-import java.awt.*;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 @Slf4j
 @Component
 public class WebScreenshotUtils {
 
-    private static final int WIDTH  = 1600;
+    private static final int WIDTH = 1600;
     private static final int HEIGHT = 900;
 
     private boolean available = false;
+    private String chromeBinary;
+    private String chromeDriverBinary;
 
     @PostConstruct
     public void init() {
         try {
+            chromeBinary = detectChromeBinary();
+            chromeDriverBinary = detectChromeDriverBinary();
+
+            if (chromeBinary != null && chromeDriverBinary != null) {
+                System.setProperty("webdriver.chrome.driver", chromeDriverBinary);
+                available = true;
+                log.info("WebScreenshotUtils: using local chrome={} chromedriver={}", chromeBinary, chromeDriverBinary);
+                return;
+            }
+
+            // Fallback for local non-Docker environments.
             io.github.bonigarcia.wdm.WebDriverManager.chromedriver().setup();
+            chromeDriverBinary = System.getProperty("webdriver.chrome.driver");
             available = true;
-            log.info("WebScreenshotUtils: ChromeDriver setup complete");
+            log.info("WebScreenshotUtils: ChromeDriver setup complete via WebDriverManager");
         } catch (Exception e) {
-            log.warn("WebScreenshotUtils: ChromeDriver not available — cover screenshots disabled. Reason: {}", e.getMessage());
+            log.warn("WebScreenshotUtils: Chrome/Driver not available, screenshots disabled. Reason: {}", e.getMessage());
         }
     }
 
-    /**
-     * Opens the given URL in a headless Chrome browser, waits for full page load,
-     * takes a screenshot, compresses it to JPEG, and saves it to savePath.
-     *
-     * @return savePath on success, null on failure
-     */
     public String saveWebPageScreenshot(String webUrl, String savePath) {
         if (!available) {
             log.warn("Chrome unavailable, skipping screenshot for {}", webUrl);
             return null;
         }
+
         WebDriver driver = null;
         try {
             driver = createDriver();
@@ -63,20 +81,37 @@ public class WebScreenshotUtils {
             return null;
         } finally {
             if (driver != null) {
-                try { driver.quit(); } catch (Exception ignored) {}
+                try {
+                    driver.quit();
+                } catch (Exception ignored) {
+                }
             }
         }
     }
 
     private WebDriver createDriver() {
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless");
+        if (chromeBinary != null && !chromeBinary.isBlank()) {
+            options.setBinary(chromeBinary);
+        }
+        options.addArguments("--headless=new");
         options.addArguments("--disable-gpu");
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
-        options.addArguments(String.format("--window-size=%d,%d", WIDTH, HEIGHT));
         options.addArguments("--disable-extensions");
-        WebDriver driver = new ChromeDriver(options);
+        options.addArguments("--disable-background-networking");
+        options.addArguments("--window-size=" + WIDTH + "," + HEIGHT);
+
+        ChromeDriverService service;
+        if (chromeDriverBinary != null && !chromeDriverBinary.isBlank()) {
+            service = new ChromeDriverService.Builder()
+                    .usingDriverExecutable(new File(chromeDriverBinary))
+                    .build();
+        } else {
+            service = new ChromeDriverService.Builder().build();
+        }
+
+        WebDriver driver = new ChromeDriver(service, options);
         driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
         return driver;
@@ -85,9 +120,7 @@ public class WebScreenshotUtils {
     private void waitForPageLoad(WebDriver driver) {
         try {
             new WebDriverWait(driver, Duration.ofSeconds(10))
-                    .until(d -> ((JavascriptExecutor) d)
-                            .executeScript("return document.readyState").equals("complete"));
-            // Extra wait for JS-rendered content (Vue, React, etc.)
+                    .until(d -> "complete".equals(((JavascriptExecutor) d).executeScript("return document.readyState")));
             Thread.sleep(2000);
         } catch (Exception e) {
             log.warn("waitForPageLoad: {}", e.getMessage());
@@ -97,15 +130,14 @@ public class WebScreenshotUtils {
     private void compressAndSave(byte[] pngBytes, String savePath) throws Exception {
         BufferedImage original = ImageIO.read(new ByteArrayInputStream(pngBytes));
 
-        // Scale to 1200×675 thumbnail (16:9)
-        int w = 1200, h = 675;
+        int w = 1200;
+        int h = 675;
         BufferedImage thumb = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2 = thumb.createGraphics();
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         g2.drawImage(original, 0, 0, w, h, null);
         g2.dispose();
 
-        // Write as JPEG at 70% quality
         File out = new File(savePath);
         out.getParentFile().mkdirs();
         ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
@@ -119,8 +151,41 @@ public class WebScreenshotUtils {
         writer.dispose();
     }
 
+    private String detectChromeBinary() {
+        String fromEnv = System.getenv("CHROME_BIN");
+        if (isExisting(fromEnv)) return fromEnv;
+
+        String[] candidates = {
+                "/usr/bin/chromium",
+                "/usr/bin/chromium-browser",
+                "/usr/bin/google-chrome"
+        };
+        for (String c : candidates) {
+            if (isExisting(c)) return c;
+        }
+        return null;
+    }
+
+    private String detectChromeDriverBinary() {
+        String fromEnv = System.getenv("CHROMEDRIVER_BIN");
+        if (isExisting(fromEnv)) return fromEnv;
+
+        String[] candidates = {
+                "/usr/bin/chromedriver",
+                "/usr/lib/chromium/chromedriver"
+        };
+        for (String c : candidates) {
+            if (isExisting(c)) return c;
+        }
+        return null;
+    }
+
+    private boolean isExisting(String path) {
+        return path != null && !path.isBlank() && new File(path).exists();
+    }
+
     @PreDestroy
     public void destroy() {
-        // Drivers are created and quit per-call; nothing to clean up here
+        // drivers are per-call
     }
 }

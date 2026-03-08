@@ -177,7 +177,13 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                     }
                 })
                 .doOnError(error -> {
-                    String errMsg = "AI generation failed: " + error.getMessage();
+                    String raw = error.getMessage() != null ? error.getMessage() : "Unknown error";
+                    String errMsg;
+                    if (raw.contains("completeResponse") && raw.contains("null")) {
+                        errMsg = "AI generation failed: model returned an incomplete response. Please retry.";
+                    } else {
+                        errMsg = "AI generation failed: " + raw;
+                    }
                     chatHistoryService.addChatMessage(appId, errMsg, MessageTypeEnum.AI.getValue(), loginUser.getId());
                 });
     }

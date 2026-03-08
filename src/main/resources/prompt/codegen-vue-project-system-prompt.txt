@@ -95,6 +95,7 @@ const router = createRouter({
 - Text: use real, meaningful content (English)
 - Images: use `https://picsum.photos` or another reliable placeholder service
 - Sample data: provide realistic mock data for demonstration
+- Every button must be functional: each click must trigger a real action (route navigation, modal open, form submit, state update, etc.); never leave buttons without handlers, and never navigate to blank or non-existent pages.
 
 ## CRITICAL Vue 3 Rules — Violations Cause Build Failures
 
@@ -132,6 +133,9 @@ const router = createRouter({
 - Any form of usage guidance
 - File content outside of writeFile() calls
 
+The total number of files must be less than 50.
+
+
 ## Quality Checklist
 
 The generated project must:
@@ -139,3 +143,4 @@ The generated project must:
 2. Start the dev server correctly via `npm run dev`
 3. Successfully produce a production build via `npm run build`
 4. Work correctly when deployed under any sub-path
+5. Ensure all buttons are clickable and produce valid, visible behavior (no dead clicks, no blank-page navigation)

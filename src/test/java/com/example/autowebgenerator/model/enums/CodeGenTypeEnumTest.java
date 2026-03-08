@@ -10,19 +10,19 @@ import static org.junit.jupiter.api.Assertions.*;
 class CodeGenTypeEnumTest {
 
     @Test
-    void fromValue_returnsHtmlForHtmlString() {
-        assertEquals(CodeGenTypeEnum.HTML, CodeGenTypeEnum.fromValue("html"));
+    void fromValue_returnsVueProjectForVueProjectString() {
+        assertEquals(CodeGenTypeEnum.VUE_PROJECT, CodeGenTypeEnum.fromValue("vue_project"));
     }
 
     @Test
-    void fromValue_returnsMultiFileForMultiFileString() {
-        assertEquals(CodeGenTypeEnum.MULTI_FILE, CodeGenTypeEnum.fromValue("multi_file"));
+    void fromValue_returnsNullForDisabledLegacyModes() {
+        assertNull(CodeGenTypeEnum.fromValue("html"));
+        assertNull(CodeGenTypeEnum.fromValue("multi_file"));
     }
 
     @Test
     void fromValue_isCaseInsensitive() {
-        assertEquals(CodeGenTypeEnum.HTML,       CodeGenTypeEnum.fromValue("HTML"));
-        assertEquals(CodeGenTypeEnum.MULTI_FILE, CodeGenTypeEnum.fromValue("MULTI_FILE"));
+        assertEquals(CodeGenTypeEnum.VUE_PROJECT, CodeGenTypeEnum.fromValue("VUE_PROJECT"));
     }
 
     @Test
@@ -34,10 +34,7 @@ class CodeGenTypeEnumTest {
 
     @Test
     void getValueAndLabel_areCorrect() {
-        assertEquals("html",       CodeGenTypeEnum.HTML.getValue());
-        assertEquals("multi_file", CodeGenTypeEnum.MULTI_FILE.getValue());
-
-        assertEquals("Single-file HTML",            CodeGenTypeEnum.HTML.getLabel());
-        assertEquals("Multi-file (HTML + CSS + JS)", CodeGenTypeEnum.MULTI_FILE.getLabel());
+        assertEquals("vue_project", CodeGenTypeEnum.VUE_PROJECT.getValue());
+        assertEquals("Vue Project", CodeGenTypeEnum.VUE_PROJECT.getLabel());
     }
 }

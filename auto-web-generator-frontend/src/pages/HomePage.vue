@@ -109,54 +109,32 @@ const promptTemplates = [
   {
     label: '🎨 Portfolio',
     prompt:
-      'Build a polished, production-ready one-page portfolio site for Alex Rivera, a freelance UI/UX Designer & Creative Technologist, using Vue with clean, component-based code and responsive design. ' +
-      'Include: (1) a full-screen hero with animated gradient background, name/title, and short tagline; (2) a filterable Projects section with tabs All/Web/Mobile/Branding and 6 cards (Lumina Finance App, Orbit Dashboard, Breeze Mobile Banking, Bloom E-commerce, Nova Brand Identity, Pixel CMS), each with image placeholder, category badge, and hover overlay + "View Case Study" CTA; (3) an About section with avatar placeholder, 3-paragraph bio, timeline (Freelance 2022-present, Shopify 2020-2022, Google 2018-2020), and animated skill bars (Figma 95%, Vue.js 80%, Motion Design 75%, Prototyping 90%); (4) Testimonials with 3 client quotes including avatar, name, and company; (5) Contact form with name, email, project type dropdown (Web/Mobile/Branding/Other), and message; (6) Footer with social links (Dribbble, Behance, LinkedIn, GitHub). ' +
-      'Style direction: dark premium aesthetic with background #0f0f0f, accent #7c3aed, Inter font, subtle glow effects, strong visual hierarchy, smooth scrolling, and tasteful scroll-triggered animations throughout.',
+      'Build a polished, production-ready one-page portfolio site for Alex Rivera, a freelance UI/UX Designer & Creative Technologist, using Vue with clean, component-based code and responsive design. '
   },
   {
     label: '✍️ Personal Blog',
     prompt:
-      'Build a modern editorial blog website for Sarah Chen, a tech writer focused on productivity, indie hacking, and software engineering, using Vue and responsive component-based architecture. ' +
-      'Include a sticky header with logo "Sarah Chen", nav links (Home, Essays, Projects, About, Newsletter), search icon, and dark mode toggle; a homepage with one featured hero post and a 3-column grid of recent posts with category badge, title, 2-sentence excerpt, date, and reading time. ' +
-      'Add 6 mock posts: "How I Shipped a SaaS in 30 Days" (Indie Hacking, 8 min), "The Pomodoro Myth" (Productivity, 5 min), "Why I Quit Big Tech" (Life, 12 min), "Building in Public: Month 3" (Indie Hacking, 6 min), "My Obsidian Setup for 2024" (Productivity, 9 min), and "On Saying No" (Life, 4 min). ' +
-      'Create a post detail layout with full-width cover image, floating table of contents, rich text body with code blocks and pull quotes, tags, author bio card, and 3 related posts; add a sidebar with about blurb, newsletter form ("Get my weekly essay"), top posts, and tag cloud; add an About page with photo, 4-paragraph bio, and tools list (Mac M2, Notion, Obsidian, Raycast, VS Code). ' +
-      'Style direction: warm editorial look with background #faf8f5, Playfair Display headings, clean sans-serif body text, amber accent #d97706, readable 700px article width, and smooth scroll and reveal animations.',
+      'Build a modern editorial blog website for Sarah Chen, a tech writer focused on productivity, indie hacking, and software engineering, using Vue and responsive component-based architecture.'
   },
   {
     label: '🛍️ Online Store',
     prompt:
-      'Build a premium e-commerce website for a skincare brand named "Lumiere Skin" with clean Vue components, responsive pages, and polished shopping UX. ' +
-      'Homepage: full-screen hero with tagline "Science-backed skincare for radiant skin" and Shop Now CTA, best-sellers row (4 products), brand values strip (Clean Ingredients, Cruelty-Free, Sustainable Packaging, Dermatologist Tested), before/after results section, and customer review highlights. ' +
-      'Products page: filterable product grid with filters for Skin Type (Oily, Dry, Combination, Sensitive), Concern (Hydration, Anti-Aging, Brightening), and price range; include 6 mock products with prices: Luminous Vitamin C Serum 30ml ($48), Deep Hydration Cream 50ml ($62), Gentle Foam Cleanser 150ml ($34), SPF 50 Daily Shield Fluid 30ml ($55), Retinol Night Repair Serum 30ml ($72), Soothing Rose Toner 200ml ($38). ' +
-      'Product detail page: image gallery, rating summary (4.8/5 from 124 reviews), size selector, quantity stepper, Add to Cart and Wishlist buttons, ingredients accordion, how-to-use steps, and 3 written reviews with avatar and rating; include slide-out cart with subtotal, free-shipping progress, and checkout CTA plus a checkout page with shipping form, order summary, and card payment fields. ' +
-      'Style direction: minimal luxury with ivory background #faf9f7, gold accent #c9a96e, elegant serif headings, soft shadows, and smooth micro-interactions.',
+      'Build a polished, production-ready e-commerce website for a modern skincare brand, using Vue with clean, component-based code and responsive design. Create a premium shopping experience with a strong brand story, engaging product presentation, intuitive browsing and filtering, persuasive product detail pages, and a smooth cart-to-checkout flow. Focus on a minimal luxury visual direction with refined typography, soft depth, elegant interactions, and clear information hierarchy.',
   },
   {
     label: '🏢 Company Site',
     prompt:
-      'Build a high-converting B2B SaaS marketing website for "Streamline AI", an AI-powered project management and team collaboration platform, using Vue and reusable responsive sections. ' +
-      'Hero section: headline "Your team\'s work, finally in sync", supporting copy, email capture input, primary CTA "Start Free Trial", and a browser-frame product screenshot mockup; include social proof logos for Nexus Corp, Atlas Health, Orbit Ventures, Meridian Bank, and Crestline Media. ' +
-      'Add a features grid with 6 cards (AI Task Prioritization, Real-Time Collaboration, Gantt Chart View, Slack & Jira Integration, Automated Weekly Reports, 99.9% Uptime SLA), an animated 3-step "How It Works" flow, and a pricing table with 3 tiers: Starter $0/mo, Pro $29/mo, Enterprise $99/mo, each with feature bullets and CTA. ' +
-      'Include testimonials (3 cards with photo, quote, name, title, company) and a 6-item FAQ accordion; ensure strong CTA placement throughout and polished mobile behavior. ' +
-      'Style direction: dark navy hero (#0d1b2a), clean white content sections, electric blue accent (#3b82f6), Inter font, subtle glassmorphism cards, and smooth scroll-triggered animations.',
+      'Build a high-converting B2B SaaS marketing website for a modern AI-powered productivity platform, using Vue with clean, reusable, responsive sections. Create a clear conversion-focused funnel with a compelling hero, strong social proof, benefit-driven feature highlights, simple process explanation, transparent pricing tiers, customer testimonials, and an FAQ section. Emphasize strategic CTA placement, polished mobile behavior, and a contemporary visual style with strong contrast, modern typography, subtle depth, and smooth scroll-based motion.',
   },
   {
     label: '📰 News & Media',
     prompt:
-      'Build an online news magazine website called "The Daily Pulse" covering Tech, Business, Culture, and Science, with a fast, content-first layout built in Vue. ' +
-      'Include a breaking-news ticker with 3 rotating headlines, a header with logo, nav (Home/Tech/Business/Culture/Science/Opinion), search, dark mode toggle, and Subscribe button; homepage should feature one hero story and a 3-column article grid. ' +
-      'Add 8 mock articles with realistic authors, relative timestamps, and two-sentence excerpts: "The Rise of Autonomous Warehouses" (James Okafor, Business), "James Webb Captures Earliest Galaxy Yet" (Dr. Priya Nair, Science), "How Gen Z is Redefining Luxury" (Mia Torres, Culture), "EU Passes Landmark AI Act" (Lena Hoffmann, Tech), "Inside the Battery Startup That Could Kill Tesla" (Ryan Cho, Business), "CRISPR Cure for Sickle Cell Approved" (Dr. Amara Diallo, Science), "The Death of the Album" (Finn Walsh, Culture), "Quantum Computing Just Got 10x Cheaper" (Yuki Tanaka, Tech). ' +
-      'Create an article detail page with byline block, publish metadata, share actions, long-form body structure (intro + 3 sections + blockquote + inline image), tags, and a "You May Also Like" row; add a sidebar with trending topics, most-read list, and newsletter form. ' +
-      'Style direction: crisp editorial visual system with white background, bold serif headlines, red category accents, dense but readable grid, and high contrast typography.',
+      'Build a polished, content-first online news magazine website, using Vue with clean, component-based architecture and responsive design. Include a clear editorial navigation system, prominent headline storytelling, structured category coverage, searchable content discovery, and engaging article detail pages with rich reading layouts and related-content recommendations. Add common media-platform elements such as breaking updates, trending/most-read side modules, newsletter capture, and subscription-focused CTAs. Emphasize readability, fast scanning, and a refined editorial visual style with strong typography, high contrast, and balanced information density.',
   },
   {
     label: '🍽️ Restaurant',
     prompt:
-      'Build an upscale restaurant website for "Osteria Bellavia" (123 Mulberry Street, New York, NY) with immersive visuals, conversion-focused reservations, and responsive design in Vue. ' +
-      'Hero: full-screen atmospheric background, elegant logotype, tagline "Authentic flavors from the heart of Tuscany since 2008", and dual CTAs ("Reserve a Table" and "View Menu"); About section: two-column founder story (Chef Marco Bellavia, from Florence, established 2008) with award highlights (Michelin Bib Gourmand 2022, James Beard Nominee 2023, New York Times Critics\' Pick). ' +
-      'Menu section: tabbed categories (Antipasti, Primi, Secondi, Dolci, Wine & Drinks) with 5 items each including Italian name, English description, and price; include sample dishes such as Burrata con Prosciutto di Parma ($22), Tagliatelle al Tartufo Nero ($34), and Branzino al Forno ($48). ' +
-      'Add a 9-image gallery grid, chef spotlight cards for Marco Bellavia and Pastry Chef Sofia Rossi, a reservation form (date, time 5:00 PM-10:00 PM in 30-minute slots, party size 1-12, name, phone, email, special requests), and a Hours & Location section (Tue-Thu 5 PM-10 PM, Fri-Sat 5 PM-11 PM, Sun 4 PM-9 PM, closed Monday) with map placeholder and phone +1 (212) 555-0198. ' +
-      'Style direction: cinematic fine-dining look with deep black (#0c0c0c), burgundy (#8b1a1a), cream typography, candlelight gold accents (#d4a843), Cormorant Garamond headings, and subtle motion transitions.',
+      'Build a premium, conversion-focused restaurant website for an upscale dining brand, using Vue with clean, component-based code and fully responsive design. Create an immersive first impression with strong visual storytelling, clear reservation-first CTAs, and an elegant brand narrative. Include key hospitality sections such as about/story, structured menu presentation, gallery, chef highlights, reservation flow, and practical visit information (hours, location, contact). Emphasize a cinematic fine-dining aesthetic with refined typography, rich contrast, warm accent tones, and subtle motion that enhances atmosphere without hurting usability.',
   },
 ]
 

@@ -7,8 +7,7 @@
       </a-form-item>
       <a-form-item label="Code Gen Type">
         <a-select v-model:value="searchParams.codeGenType" style="width: 140px" allow-clear>
-          <a-select-option value="html">HTML</a-select-option>
-          <a-select-option value="multi_file">Multi File</a-select-option>
+          <a-select-option value="vue_project">Vue Project</a-select-option>
         </a-select>
       </a-form-item>
       <a-form-item>

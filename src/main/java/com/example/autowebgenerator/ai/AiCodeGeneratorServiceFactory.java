@@ -75,11 +75,10 @@ public class AiCodeGeneratorServiceFactory {
     }
 
     /**
-     * Backward-compatible overload: defaults to HTML type.
-     * Used by the default @Bean and any legacy callers.
+     * Backward-compatible overload: currently defaults to VUE_PROJECT.
      */
     public AiCodeGeneratorService getAiCodeGeneratorService(long appId) {
-        return getAiCodeGeneratorService(appId, CodeGenTypeEnum.HTML);
+        return getAiCodeGeneratorService(appId, CodeGenTypeEnum.VUE_PROJECT);
     }
 
     private AiCodeGeneratorService createAiCodeGeneratorService(long appId, CodeGenTypeEnum codeGenType) {
@@ -132,7 +131,7 @@ public class AiCodeGeneratorServiceFactory {
         };
     }
 
-    /** Default bean (appId=0, HTML type) kept for any direct AiCodeGeneratorService injections. */
+    /** Default bean (appId=0, VUE_PROJECT mode). */
     @Bean
     AiCodeGeneratorService aiCodeGeneratorService() {
         return getAiCodeGeneratorService(0L);

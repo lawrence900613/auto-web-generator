@@ -3,8 +3,6 @@ package com.example.autowebgenerator.core;
 import cn.hutool.json.JSONUtil;
 import com.example.autowebgenerator.ai.AiCodeGeneratorService;
 import com.example.autowebgenerator.ai.AiCodeGeneratorServiceFactory;
-import com.example.autowebgenerator.ai.model.HtmlCodeResult;
-import com.example.autowebgenerator.ai.model.MultiFileCodeResult;
 import com.example.autowebgenerator.ai.model.message.AiResponseMessage;
 import com.example.autowebgenerator.ai.model.message.ToolExecutedMessage;
 import com.example.autowebgenerator.ai.model.message.ToolRequestMessage;
@@ -34,23 +32,13 @@ public class AiCodeGeneratorFacade {
     private VueProjectBuilder vueProjectBuilder;
 
     // -------------------------------------------------------------------------
-    // Synchronous generation (uses default appId=0 service)
+    // Synchronous generation (legacy endpoint path)
     // -------------------------------------------------------------------------
 
     public File generateAndSave(String userMessage, CodeGenTypeEnum type) {
-        AiCodeGeneratorService service = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(0L, type);
-        return switch (type) {
-            case HTML -> {
-                HtmlCodeResult result = service.generateHtmlCode(userMessage);
-                yield CodeFileSaver.saveHtmlCode(result);
-            }
-            case MULTI_FILE -> {
-                MultiFileCodeResult result = service.generateMultiFileCode(userMessage);
-                yield CodeFileSaver.saveMultiFileCode(result);
-            }
-            case VUE_PROJECT ->
-                throw new ServiceException(ErrorCode.SYSTEM_ERROR, "VUE_PROJECT requires streaming mode");
-        };
+        throw new ServiceException(
+                ErrorCode.BAD_REQUEST,
+                "Legacy synchronous generation is temporarily disabled. Use app chat generation endpoint.");
     }
 
     // -------------------------------------------------------------------------
@@ -59,12 +47,15 @@ public class AiCodeGeneratorFacade {
 
     public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum type) {
         if (type == null) throw new ServiceException(ErrorCode.SYSTEM_ERROR, "type must not be null");
-        return switch (type) {
-            case HTML       -> streamHtml(userMessage, null);
-            case MULTI_FILE -> streamMultiFile(userMessage, null);
-            case VUE_PROJECT ->
-                throw new ServiceException(ErrorCode.SYSTEM_ERROR, "VUE_PROJECT requires an appId");
-        };
+        if (type != CodeGenTypeEnum.VUE_PROJECT) {
+            // Legacy modes are temporarily disabled:
+            // - HTML
+            // - MULTI_FILE
+            throw new ServiceException(ErrorCode.BAD_REQUEST, "Only vue_project mode is supported.");
+        }
+        throw new ServiceException(
+                ErrorCode.BAD_REQUEST,
+                "Anonymous stream is disabled for vue_project. Use app-scoped stream with appId.");
     }
 
     // -------------------------------------------------------------------------
@@ -74,9 +65,12 @@ public class AiCodeGeneratorFacade {
     public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum type, Long appId) {
         if (type == null) throw new ServiceException(ErrorCode.SYSTEM_ERROR, "type must not be null");
         return switch (type) {
-            case HTML       -> streamHtml(userMessage, appId);
-            case MULTI_FILE -> streamMultiFile(userMessage, appId);
             case VUE_PROJECT -> streamVueProject(userMessage, appId);
+            // Temporarily disabled modes:
+            // case HTML       -> streamHtml(userMessage, appId);
+            // case MULTI_FILE -> streamMultiFile(userMessage, appId);
+            case HTML, MULTI_FILE ->
+                    throw new ServiceException(ErrorCode.BAD_REQUEST, "Only vue_project mode is supported.");
         };
     }
 
@@ -89,59 +83,9 @@ public class AiCodeGeneratorFacade {
         return JSONUtil.toJsonStr(new AiResponseMessage(text));
     }
 
-    private Flux<String> streamHtml(String userMessage, Long appId) {
-        AiCodeGeneratorService service = aiCodeGeneratorServiceFactory
-                .getAiCodeGeneratorService(appId != null ? appId : 0L, CodeGenTypeEnum.HTML);
-        StringBuilder buf = new StringBuilder();
-        TokenStream tokenStream = service.generateHtmlCodeStream(userMessage);
-        return Flux.create(emitter -> tokenStream
-                .onPartialResponse(token -> {
-                    buf.append(token);
-                    emitter.next(aiChunk(token));
-                })
-                .onCompleteResponse(response -> {
-                    try {
-                        HtmlCodeResult result = CodeParser.parseHtmlCode(buf.toString());
-                        if (appId != null) {
-                            CodeFileSaver.saveHtmlCodeForApp(result, appId);
-                        } else {
-                            CodeFileSaver.saveHtmlCode(result);
-                        }
-                    } catch (Exception e) {
-                        log.error("Failed to save streamed HTML code", e);
-                    }
-                    emitter.complete();
-                })
-                .onError(emitter::error)
-                .start());
-    }
-
-    private Flux<String> streamMultiFile(String userMessage, Long appId) {
-        AiCodeGeneratorService service = aiCodeGeneratorServiceFactory
-                .getAiCodeGeneratorService(appId != null ? appId : 0L, CodeGenTypeEnum.MULTI_FILE);
-        StringBuilder buf = new StringBuilder();
-        TokenStream tokenStream = service.generateMultiFileCodeStream(userMessage);
-        return Flux.create(emitter -> tokenStream
-                .onPartialResponse(token -> {
-                    buf.append(token);
-                    emitter.next(aiChunk(token));
-                })
-                .onCompleteResponse(response -> {
-                    try {
-                        MultiFileCodeResult result = CodeParser.parseMultiFileCode(buf.toString());
-                        if (appId != null) {
-                            CodeFileSaver.saveMultiFileCodeForApp(result, appId);
-                        } else {
-                            CodeFileSaver.saveMultiFileCode(result);
-                        }
-                    } catch (Exception e) {
-                        log.error("Failed to save streamed multi-file code", e);
-                    }
-                    emitter.complete();
-                })
-                .onError(emitter::error)
-                .start());
-    }
+    // Legacy stream helpers are intentionally commented out while only vue_project is supported.
+//    private Flux<String> streamHtml(String userMessage, Long appId) { ... }
+//    private Flux<String> streamMultiFile(String userMessage, Long appId) { ... }
 
     /**
      * VUE_PROJECT generation uses streaming + FileWriteTool.

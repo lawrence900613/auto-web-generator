@@ -187,8 +187,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
   RobotFilled,
@@ -271,17 +271,15 @@ const isAdmin = computed(() => loginUserStore.loginUser?.userRole === 'admin')
 
 const codeGenLabel = computed(() => {
   const t = app.value?.codeGenType
-  if (t === 'html') return 'HTML Mode'
-  if (t === 'multi_file') return 'Multi-file Mode'
   if (t === 'vue_project') return 'Vue Project'
+  // Legacy labels are temporarily disabled:
+  // if (t === 'html') return 'HTML Mode'
+  // if (t === 'multi_file') return 'Multi-file Mode'
   return t ?? ''
 })
 
 const getStaticPreviewUrl = () => {
-  if (app.value?.codeGenType === 'vue_project') {
-    return `${apiBase}/app-output/vue_project_${appId}/dist/index.html`
-  }
-  return `${apiBase}/app-output/${appId}/index.html`
+  return `${apiBase}/app-output/vue_project_${appId}/dist/index.html`
 }
 
 
@@ -485,7 +483,26 @@ const onIframeLoad = () => {
   }
 }
 
+const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
+  if (!streaming.value) return
+  // Prompt the browser's native "leave site?" dialog.
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+onBeforeRouteLeave((_to, _from, next) => {
+  if (!streaming.value) {
+    next()
+    return
+  }
+  const ok = window.confirm(
+    'Generation is still in progress. Leaving now may interrupt streaming and lose in-progress output. Leave anyway?',
+  )
+  next(ok)
+})
+
 onMounted(async () => {
+  window.addEventListener('beforeunload', beforeUnloadHandler)
   window.addEventListener('message', (e) => visualEditor.handleIframeMessage(e))
   await fetchApp()
   await fetchChatHistory()
@@ -502,6 +519,10 @@ onMounted(async () => {
   } else {
     await scrollToBottom()
   }
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', beforeUnloadHandler)
 })
 </script>
 
