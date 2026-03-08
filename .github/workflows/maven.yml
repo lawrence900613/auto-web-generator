@@ -73,4 +73,14 @@ jobs:
           ${{ secrets.DOCKERHUB_USERNAME }}/auto-web-generator-backend:latest
           ${{ secrets.DOCKERHUB_USERNAME }}/auto-web-generator-backend:${{ github.sha }}
 
+    - name: Build and push nginx image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: deploy/docker/nginx/Dockerfile
+        push: true
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/auto-web-generator-nginx:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/auto-web-generator-nginx:${{ github.sha }}
+
 
