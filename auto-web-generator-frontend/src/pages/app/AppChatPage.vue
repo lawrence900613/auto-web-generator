@@ -232,8 +232,8 @@ const route = useRoute()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
 
-const apiBase = (import.meta.env.VITE_API_BASE ?? 'http://localhost:8123/api') as string
-const deployDomain = (import.meta.env.VITE_DEPLOY_DOMAIN ?? 'http://localhost') as string
+const apiBase = ((import.meta.env.VITE_API_BASE || '/api') as string).trim()
+const deployDomain = ((import.meta.env.VITE_DEPLOY_DOMAIN || window.location.origin) as string).trim()
 const appId = route.params.id as string
 
 const app = ref<API.AppVO>()

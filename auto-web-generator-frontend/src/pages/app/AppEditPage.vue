@@ -101,7 +101,7 @@ import { LeftOutlined } from '@ant-design/icons-vue'
 import { getAppVoById, updateApp, updateAppByAdmin } from '@/api/appController'
 import { useLoginUserStore } from '@/stores/loginUser'
 
-const apiBase = (import.meta.env.VITE_API_BASE ?? 'http://localhost:8123/api') as string
+const apiBase = ((import.meta.env.VITE_API_BASE || '/api') as string).trim()
 
 const route = useRoute()
 const router = useRouter()

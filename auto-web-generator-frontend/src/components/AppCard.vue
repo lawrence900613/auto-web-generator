@@ -30,7 +30,8 @@ const props = defineProps<{ app: API.AppVO }>()
 const router = useRouter()
 
 // Strip /api suffix to get bare host (e.g. "http://localhost:8123")
-const apiBase = (import.meta.env.VITE_API_BASE ?? 'http://localhost:8123/api') as string
+const apiBase = ((import.meta.env.VITE_API_BASE || '/api') as string).trim()
+const deployDomain = ((import.meta.env.VITE_DEPLOY_DOMAIN || window.location.origin) as string).trim()
 const apiHost = apiBase.replace(/\/api$/, '')
 
 // Resolve cover URL: absolute URLs (https://...) pass through as-is;
@@ -43,7 +44,7 @@ const coverSrc = computed(() => {
 })
 
 const goChat = () => router.push(`/app/chat/${props.app.id}?view=1`)
-const viewWork = () => window.open(`http://localhost/${props.app.deployKey}`, '_blank')
+const viewWork = () => window.open(`${deployDomain}/${props.app.deployKey}`, '_blank')
 </script>
 
 <style scoped>
