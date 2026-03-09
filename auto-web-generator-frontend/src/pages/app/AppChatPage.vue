@@ -145,10 +145,14 @@
               <template #icon><ReloadOutlined /></template>
               Refresh
             </a-button>
-            <a-button type="text" :disabled="!previewUrl" @click="openInNewWindow">
-              <template #icon><ExportOutlined /></template>
-              New Window
-            </a-button>
+            <!--
+              TEMPORARY: New Window button is hidden for now.
+              Restore when ready:
+              <a-button type="text" :disabled="!previewUrl" @click="openInNewWindow">
+                <template #icon><ExportOutlined /></template>
+                New Window
+              </a-button>
+            -->
           </div>
         </div>
         <iframe
@@ -198,7 +202,8 @@ import {
   DownloadOutlined,
   ArrowUpOutlined,
   ReloadOutlined,
-  ExportOutlined,
+  // TEMPORARY: restore when New Window button is enabled again.
+  // ExportOutlined,
   EditOutlined,
 } from '@ant-design/icons-vue'
 import { VisualEditor, type ElementInfo } from '@/utils/visualEditor'
@@ -238,7 +243,6 @@ const apiBase = /^https?:\/\//.test(rawApiBase)
   : rawApiBase.startsWith('/')
     ? rawApiBase
     : `/${rawApiBase}`
-const deployDomain = ((import.meta.env.VITE_DEPLOY_DOMAIN || window.location.origin) as string).trim()
 const appId = route.params.id as string
 
 const app = ref<API.AppVO>()
@@ -285,6 +289,10 @@ const codeGenLabel = computed(() => {
 
 const getStaticPreviewUrl = () => {
   return `${apiBase}/app-output/vue_project_${appId}/dist/index.html`
+}
+
+const getDeployPreviewUrl = (deployKey: string) => {
+  return `${apiBase}/deploy/${deployKey}/index.html#/`
 }
 
 
@@ -451,9 +459,10 @@ const refreshPreview = () => {
   }
 }
 
-const openInNewWindow = () => {
-  if (previewUrl.value) window.open(previewUrl.value, '_blank')
-}
+// TEMPORARY: keep for easy rollback when New Window button is re-enabled.
+// const openInNewWindow = () => {
+//   if (previewUrl.value) window.open(previewUrl.value, '_blank')
+// }
 
 const doDownload = () => {
   const url = `${apiBase}/app/download/${appId}`
@@ -471,8 +480,8 @@ const doDeploy = async () => {
   deploying.value = false
   if (res.data.code === 0 && res.data.data) {
     const key = res.data.data
-    previewUrl.value = `${apiBase}/deploy/${key}/index.html`
-    deployedUrl.value = `${deployDomain}/${key}`
+    previewUrl.value = getDeployPreviewUrl(key)
+    deployedUrl.value = getDeployPreviewUrl(key)
     deploySuccessVisible.value = true
     await fetchApp()
   } else {

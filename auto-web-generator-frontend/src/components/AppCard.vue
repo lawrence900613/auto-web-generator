@@ -36,7 +36,6 @@ const apiBase = /^https?:\/\//.test(rawApiBase)
   : rawApiBase.startsWith('/')
     ? rawApiBase
     : `/${rawApiBase}`
-const deployDomain = ((import.meta.env.VITE_DEPLOY_DOMAIN || window.location.origin) as string).trim()
 const apiHost = apiBase.replace(/\/api$/, '')
 
 // Resolve cover URL: absolute URLs (https://...) pass through as-is;
@@ -49,7 +48,11 @@ const coverSrc = computed(() => {
 })
 
 const goChat = () => router.push(`/app/chat/${props.app.id}?view=1`)
-const viewWork = () => window.open(`${deployDomain}/${props.app.deployKey}`, '_blank')
+// TEMPORARY: point View Work to frontend-hosted /api/deploy proxy for now.
+// Restore when deploy domain routing is finalized:
+// const deployDomain = ((import.meta.env.VITE_DEPLOY_DOMAIN || window.location.origin) as string).trim()
+// const viewWork = () => window.open(`${deployDomain}/${props.app.deployKey}`, '_blank')
+const viewWork = () => window.open(`${apiBase}/deploy/${props.app.deployKey}/index.html#/`, '_blank')
 </script>
 
 <style scoped>
