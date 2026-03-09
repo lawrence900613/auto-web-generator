@@ -79,8 +79,8 @@ jobs:
           context: .
           file: deploy/docker/frontend/Dockerfile
           build-args: |
-            VITE_API_BASE=${{ vars.VITE_API_BASE }}
-            VITE_DEPLOY_DOMAIN=${{ vars.VITE_DEPLOY_DOMAIN }}
+            VITE_API_BASE=${{ secrets.VITE_API_BASE }}
+            VITE_DEPLOY_DOMAIN=${{ secrets.VITE_DEPLOY_DOMAIN }}
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/auto-web-generator-frontend:latest
