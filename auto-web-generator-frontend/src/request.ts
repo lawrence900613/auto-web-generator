@@ -6,7 +6,12 @@ import { message } from 'ant-design-vue'
 const safeParse = (raw: string) =>
   JSON.parse(raw.replace(/:(\s*)(\d{16,})([,}\]])/g, ':$1"$2"$3'))
 
-const apiBase = (import.meta.env.VITE_API_BASE || '/api').trim()
+const rawApiBase = (import.meta.env.VITE_API_BASE || '/api').trim()
+const apiBase = /^https?:\/\//.test(rawApiBase)
+  ? rawApiBase
+  : rawApiBase.startsWith('/')
+    ? rawApiBase
+    : `/${rawApiBase}`
 
 const myAxios = axios.create({
   baseURL: apiBase,

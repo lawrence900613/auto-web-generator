@@ -232,7 +232,12 @@ const route = useRoute()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
 
-const apiBase = ((import.meta.env.VITE_API_BASE || '/api') as string).trim()
+const rawApiBase = ((import.meta.env.VITE_API_BASE || '/api') as string).trim()
+const apiBase = /^https?:\/\//.test(rawApiBase)
+  ? rawApiBase
+  : rawApiBase.startsWith('/')
+    ? rawApiBase
+    : `/${rawApiBase}`
 const deployDomain = ((import.meta.env.VITE_DEPLOY_DOMAIN || window.location.origin) as string).trim()
 const appId = route.params.id as string
 

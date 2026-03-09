@@ -101,7 +101,12 @@ import { LeftOutlined } from '@ant-design/icons-vue'
 import { getAppVoById, updateApp, updateAppByAdmin } from '@/api/appController'
 import { useLoginUserStore } from '@/stores/loginUser'
 
-const apiBase = ((import.meta.env.VITE_API_BASE || '/api') as string).trim()
+const rawApiBase = ((import.meta.env.VITE_API_BASE || '/api') as string).trim()
+const apiBase = /^https?:\/\//.test(rawApiBase)
+  ? rawApiBase
+  : rawApiBase.startsWith('/')
+    ? rawApiBase
+    : `/${rawApiBase}`
 
 const route = useRoute()
 const router = useRouter()
