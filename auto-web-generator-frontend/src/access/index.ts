@@ -5,9 +5,9 @@ import checkAccess from './checkAccess'
 
 /**
  * Global route guard.
- * - On the first page load, fetches the login user from the backend.
- * - Redirects to /user/login if the page requires authentication.
- * - Redirects to /noAuth if the user lacks the required role.
+ * - On first page load, fetches login user from backend.
+ * - Redirects to /user/login if route requires auth.
+ * - Redirects to /noAuth when role is insufficient.
  */
 router.beforeEach(async (to, _from, next) => {
   // Temporary switch: disable all admin routes.
@@ -16,16 +16,17 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
-  // Pinia must be initialised inside the callback (not at module level)
+  // Pinia must be initialized inside the callback (not at module level).
   const loginUserStore = useLoginUserStore()
   let loginUser = loginUserStore.loginUser
+  const isAuthPage = to.path.startsWith('/user/login') || to.path.startsWith('/user/register')
 
-  // First visit — try to fetch login state from the backend
-  if (!loginUser.userRole) {
+  // Avoid blocking login/register routes when backend is slow/unreachable.
+  if (!loginUser.userRole && !isAuthPage) {
     try {
       await loginUserStore.fetchLoginUser()
     } catch {
-      // Backend may be unreachable; continue as unauthenticated
+      // Backend may be unreachable; continue as unauthenticated.
     }
     loginUser = loginUserStore.loginUser
   }
@@ -33,12 +34,10 @@ router.beforeEach(async (to, _from, next) => {
   const needAccess = (to.meta?.access as string) ?? ACCESS_ENUM.NOT_LOGIN
 
   if (needAccess !== ACCESS_ENUM.NOT_LOGIN) {
-    // Not logged in → redirect to login
     if (!loginUser.userRole || loginUser.userRole === ACCESS_ENUM.NOT_LOGIN) {
       next(`/user/login?redirect=${to.fullPath}`)
       return
     }
-    // Logged in but insufficient role → redirect to no-auth page
     if (!checkAccess(loginUser, needAccess)) {
       next('/noAuth')
       return
