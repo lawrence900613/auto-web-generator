@@ -65,7 +65,10 @@ public class AppController {
         App app = new App();
         app.setInitPrompt(initPrompt);
         app.setUserId(loginUser.getId());
-        app.setAppName(generateAppName(initPrompt));
+        // TEMPORARY: skip AI naming to avoid slow /app/add requests.
+        // Restore later:
+        // app.setAppName(generateAppName(initPrompt));
+        app.setAppName(buildFallbackAppName(initPrompt));
         app.setCodeGenType(CodeGenTypeEnum.VUE_PROJECT.getValue());
         app.setPriority(AppConstant.DEFAULT_APP_PRIORITY);
         app.setIsDelete(0);
@@ -285,6 +288,13 @@ public class AppController {
         } catch (Exception e) {
             log.warn("AI app name generation failed, falling back to prompt prefix: {}", e.getMessage());
         }
+        return initPrompt.substring(0, Math.min(initPrompt.length(), 40));
+    }
+
+    /**
+     * Fast local name generation used while AI naming is temporarily disabled.
+     */
+    private String buildFallbackAppName(String initPrompt) {
         return initPrompt.substring(0, Math.min(initPrompt.length(), 40));
     }
 }
