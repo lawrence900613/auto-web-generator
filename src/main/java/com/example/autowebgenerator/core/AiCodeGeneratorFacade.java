@@ -102,18 +102,57 @@ public class AiCodeGeneratorFacade {
     private Flux<String> streamVueProject(String userMessage, Long appId) {
         if (appId == null) throw new ServiceException(ErrorCode.BAD_REQUEST, "appId is required for VUE_PROJECT");
         return Flux.create(emitter -> {
+            // completed = true when the stream finishes normally; onDispose checks this
+            // to distinguish a client disconnect from a natural completion.
+            java.util.concurrent.atomic.AtomicBoolean completed =
+                    new java.util.concurrent.atomic.AtomicBoolean(false);
+            java.util.concurrent.atomic.AtomicBoolean cancelled =
+                    new java.util.concurrent.atomic.AtomicBoolean(false);
+            java.util.concurrent.atomic.AtomicReference<Thread> aiThreadRef =
+                    new java.util.concurrent.atomic.AtomicReference<>();
+            java.util.concurrent.atomic.AtomicReference<Thread> buildThreadRef =
+                    new java.util.concurrent.atomic.AtomicReference<>();
+            emitter.onDispose(() -> {
+                if (completed.get()) return; // normal completion — nothing to clean up
+                // Client disconnected mid-generation
+                cancelled.set(true);
+                Thread aiThread = aiThreadRef.get();
+                if (aiThread != null && aiThread.isAlive()) {
+                    log.info("SSE client disconnected — interrupting AI thread for app {}", appId);
+                    aiThread.interrupt();
+                }
+                Thread buildThread = buildThreadRef.get();
+                if (buildThread != null && buildThread.isAlive()) {
+                    log.info("SSE client disconnected — interrupting build thread for app {}", appId);
+                    buildThread.interrupt();
+                }
+                // Evict the cached service so the next generation starts with a clean state
+                aiCodeGeneratorServiceFactory.evictService(appId, CodeGenTypeEnum.VUE_PROJECT);
+            });
             AiCodeGeneratorService service = aiCodeGeneratorServiceFactory
                     .getAiCodeGeneratorService(appId, CodeGenTypeEnum.VUE_PROJECT);
             TokenStream tokenStream = service.generateVueProjectCodeStream(appId, userMessage);
             tokenStream
-                    .onPartialResponse(token -> emitter.next(aiChunk(token)))
+                    .onPartialResponse(token -> {
+                        aiThreadRef.compareAndSet(null, Thread.currentThread());
+                        if (cancelled.get()) throw new RuntimeException("Generation cancelled by client disconnect");
+                        emitter.next(aiChunk(token));
+                    })
                     .onToolExecuted(toolExecution -> {
-                            emitter.next(JSONUtil.toJsonStr(new ToolRequestMessage(toolExecution)));
-                            emitter.next(JSONUtil.toJsonStr(new ToolExecutedMessage(toolExecution)));
+                        if (cancelled.get()) throw new RuntimeException("Generation cancelled by client disconnect");
+                        emitter.next(JSONUtil.toJsonStr(new ToolRequestMessage(toolExecution)));
+                        emitter.next(JSONUtil.toJsonStr(new ToolExecutedMessage(toolExecution)));
                     })
                     .onCompleteResponse(response -> {
+                        if (cancelled.get()) return; // client disconnected before build started
                         emitter.next(aiChunk("\n\nBuilding Vue project (npm install + npm run build)...\n"));
                         Thread buildThread = new Thread(() -> {
+                            // Re-check: onDispose may have fired between onCompleteResponse
+                            // and buildThreadRef.set(), leaving the thread uninterrupted.
+                            if (cancelled.get()) {
+                                log.info("Build skipped — generation cancelled for app {}", appId);
+                                return;
+                            }
                             String projectPath = VueProjectBuilder.projectPath(appId);
                             // Send heartbeat every 5 s so the SSE connection stays alive
                             // during the potentially long npm install + build phase.
@@ -134,6 +173,7 @@ public class AiCodeGeneratorFacade {
                             try {
                                 vueProjectBuilder.buildProject(projectPath);
                                 buildDone.set(true);
+                                completed.set(true);
                                 emitter.next(aiChunk("Build complete! Your Vue app is ready to preview.\n"));
                                 emitter.complete();
                             } catch (Exception buildErr) {
@@ -165,6 +205,7 @@ public class AiCodeGeneratorFacade {
                                     retryHeartbeat.start();
                                     vueProjectBuilder.buildProject(projectPath);
                                     retryDone.set(true);
+                                    completed.set(true);
                                     emitter.next(aiChunk("Build complete! Your Vue app is ready to preview.\n"));
                                     emitter.complete();
                                 } catch (Exception retryErr) {
@@ -174,6 +215,7 @@ public class AiCodeGeneratorFacade {
                             }
                         });
                         buildThread.setDaemon(true);
+                        buildThreadRef.set(buildThread);
                         buildThread.start();
                     })
                     .onError(emitter::error)

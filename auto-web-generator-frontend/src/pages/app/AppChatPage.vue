@@ -193,7 +193,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import {
   RobotFilled,
   CodeOutlined,
@@ -257,6 +257,7 @@ const previewUrl = ref('')
 const canDeploy = ref(false)
 const deploying = ref(false)
 const detailVisible = ref(false)
+const activeEs = ref<EventSource | null>(null)
 const deploySuccessVisible = ref(false)
 const deployedUrl = ref('')
 const hasMoreHistory = ref(false)
@@ -369,6 +370,7 @@ const sendMessage = async (text: string) => {
 
   const url = `${apiBase}/app/chat/gen/code?appId=${appId}&message=${encodeURIComponent(text)}`
   const es = new EventSource(url, { withCredentials: true })
+  activeEs.value = es
 
   es.onmessage = async (e) => {
     try {
@@ -390,6 +392,7 @@ const sendMessage = async (text: string) => {
 
   es.addEventListener('done', async () => {
     es.close()
+    activeEs.value = null
     streaming.value = false
     messages.value.push({ role: 'assistant', content: streamBuffer.value })
     streamBuffer.value = ''
@@ -402,6 +405,7 @@ const sendMessage = async (text: string) => {
 
   es.addEventListener('error', (e: MessageEvent) => {
     es.close()
+    activeEs.value = null
     streaming.value = false
     streamBuffer.value = ''
     try {
@@ -415,9 +419,22 @@ const sendMessage = async (text: string) => {
   es.onerror = () => {
     if (!streaming.value) return
     es.close()
+    activeEs.value = null
     streaming.value = false
     streamBuffer.value = ''
     message.error('Connection lost. Please try again.')
+  }
+}
+
+const stopStreamingAndMarkInterrupted = () => {
+  if (activeEs.value) {
+    activeEs.value.close()
+    activeEs.value = null
+  }
+  if (streaming.value) {
+    streaming.value = false
+    streamBuffer.value = ''
+    localStorage.setItem(`gen_interrupted_${appId}`, '1')
   }
 }
 
@@ -499,7 +516,7 @@ const onIframeLoad = () => {
 
 const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
   if (!streaming.value) return
-  // Prompt the browser's native "leave site?" dialog.
+  localStorage.setItem(`gen_interrupted_${appId}`, '1')
   event.preventDefault()
   event.returnValue = ''
 }
@@ -509,10 +526,20 @@ onBeforeRouteLeave((_to, _from, next) => {
     next()
     return
   }
-  const ok = window.confirm(
-    'Generation is still in progress. Leaving now may interrupt streaming and lose in-progress output. Leave anyway?',
-  )
-  next(ok)
+  Modal.confirm({
+    title: 'Generation in Progress',
+    content:
+      'AI generation is still running. Leaving now will stop it — you\'ll need to send your message again when you come back.',
+    okText: 'Leave anyway',
+    cancelText: 'Stay',
+    onOk() {
+      stopStreamingAndMarkInterrupted()
+      next()
+    },
+    onCancel() {
+      next(false)
+    },
+  })
 })
 
 onMounted(async () => {
@@ -521,10 +548,28 @@ onMounted(async () => {
   await fetchApp()
   await fetchChatHistory()
 
-  // Show static preview if there are at least 2 chat records
+  // Show a notice if generation was interrupted because the user left the page
+  const wasInterrupted = localStorage.getItem(`gen_interrupted_${appId}`)
+  if (wasInterrupted) {
+    localStorage.removeItem(`gen_interrupted_${appId}`)
+    messages.value.push({
+      role: 'assistant',
+      content: '⚠️ Generation was stopped because you left the page. Please send your message again to retry.',
+    })
+  }
+
+  // Show static preview only if the built dist actually exists
   if (messages.value.length >= 2) {
-    previewUrl.value = getStaticPreviewUrl()
-    canDeploy.value = true
+    const staticUrl = getStaticPreviewUrl()
+    try {
+      const res = await fetch(staticUrl, { method: 'HEAD', credentials: 'include' })
+      if (res.ok) {
+        previewUrl.value = staticUrl
+        canDeploy.value = true
+      }
+    } catch {
+      // dist not built yet — leave preview empty
+    }
   }
 
   // Auto-send initPrompt only if owner and there is no chat history yet
@@ -537,6 +582,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', beforeUnloadHandler)
+  stopStreamingAndMarkInterrupted()
 })
 </script>
 

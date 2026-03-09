@@ -81,6 +81,19 @@ public class AiCodeGeneratorServiceFactory {
         return getAiCodeGeneratorService(appId, CodeGenTypeEnum.VUE_PROJECT);
     }
 
+    /**
+     * Evicts the cached service for the given app so the next call creates a fresh instance.
+     * Also clears the corresponding Redis chat memory to avoid stale/partial state.
+     * Call this when generation is interrupted (e.g. client disconnect).
+     */
+    public void evictService(long appId, CodeGenTypeEnum codeGenType) {
+        String cacheKey = appId + "_" + codeGenType.getValue();
+        serviceCache.invalidate(cacheKey);
+        String memoryId = appId + "_" + codeGenType.getValue();
+        redisChatMemoryStore.deleteMessages(memoryId);
+        log.info("Evicted AI service and cleared Redis memory for app {}", appId);
+    }
+
     private AiCodeGeneratorService createAiCodeGeneratorService(long appId, CodeGenTypeEnum codeGenType) {
         log.info("Creating new AI service instance for appId: {}, type: {}", appId, codeGenType);
 

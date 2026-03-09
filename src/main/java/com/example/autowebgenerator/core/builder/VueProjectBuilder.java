@@ -132,6 +132,10 @@ public class VueProjectBuilder {
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        process.destroyForcibly();
+                        throw new InterruptedException("Build interrupted by client disconnect");
+                    }
                     log.info("[npm] {}", line);
                     output.append(line).append('\n');
                 }
@@ -157,6 +161,9 @@ public class VueProjectBuilder {
             }
         } catch (ServiceException e) {
             throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ServiceException(ErrorCode.SYSTEM_ERROR, "Build interrupted by client disconnect");
         } catch (Exception e) {
             throw new ServiceException(ErrorCode.SYSTEM_ERROR,
                     "Failed to run command: " + String.join(" ", cmd) + " — " + e.getMessage());
