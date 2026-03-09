@@ -1,6 +1,11 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
+ARG VITE_API_BASE=/api
+ARG VITE_DEPLOY_DOMAIN=http://localhost
+ENV VITE_API_BASE=$VITE_API_BASE
+ENV VITE_DEPLOY_DOMAIN=$VITE_DEPLOY_DOMAIN
+
 COPY auto-web-generator-frontend/package*.json ./
 RUN npm ci
 
