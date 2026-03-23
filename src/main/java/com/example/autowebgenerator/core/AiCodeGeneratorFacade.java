@@ -131,6 +131,8 @@ public class AiCodeGeneratorFacade {
             });
             AiCodeGeneratorService service = aiCodeGeneratorServiceFactory
                     .getAiCodeGeneratorService(appId, CodeGenTypeEnum.VUE_PROJECT);
+            java.util.concurrent.atomic.AtomicBoolean exitCalled =
+                    new java.util.concurrent.atomic.AtomicBoolean(false);
             TokenStream tokenStream = service.generateVueProjectCodeStream(appId, userMessage);
             tokenStream
                     .onPartialResponse(token -> {
@@ -140,11 +142,14 @@ public class AiCodeGeneratorFacade {
                     })
                     .onToolExecuted(toolExecution -> {
                         if (cancelled.get()) throw new RuntimeException("Generation cancelled by client disconnect");
+                        if ("exit".equals(toolExecution.request().name())) {
+                            exitCalled.set(true);
+                        }
                         emitter.next(JSONUtil.toJsonStr(new ToolRequestMessage(toolExecution)));
                         emitter.next(JSONUtil.toJsonStr(new ToolExecutedMessage(toolExecution)));
                     })
                     .onCompleteResponse(response -> {
-                        if (response == null) {
+                        if (response == null && !exitCalled.get()) {
                             emitter.error(new IllegalStateException("LangChain4j returned null completeResponse — stream may have ended abnormally"));
                             return;
                         }
@@ -230,7 +235,73 @@ public class AiCodeGeneratorFacade {
                         buildThreadRef.set(buildThread);
                         buildThread.start();
                     })
-                    .onError(emitter::error)
+                    .onError(err -> {
+                        // LangChain4j NPEs on null completeResponse when the model produces
+                        // an empty final reply after the exit() tool call. If exit() was already
+                        // called, generation finished successfully — treat this as onCompleteResponse.
+                        boolean isNullCompleteResponseNpe = err instanceof NullPointerException
+                                && err.getMessage() != null
+                                && err.getMessage().contains("completeResponse");
+                        if (isNullCompleteResponseNpe && exitCalled.get() && !cancelled.get()) {
+                            log.info("Treating null-completeResponse NPE as successful completion for app {} (exit() was called)", appId);
+                            // Trigger build inline (same logic as onCompleteResponse)
+                            emitter.next(aiChunk("\n\nBuilding Vue project (npm install + npm run build)...\n"));
+                            String projectPath = VueProjectBuilder.projectPath(appId);
+                            java.util.concurrent.atomic.AtomicBoolean buildDone2 =
+                                    new java.util.concurrent.atomic.AtomicBoolean(false);
+                            Thread heartbeat2 = new Thread(() -> {
+                                int elapsed = 0;
+                                while (!buildDone2.get()) {
+                                    try { Thread.sleep(5000); } catch (InterruptedException ie) { break; }
+                                    if (!buildDone2.get()) { elapsed += 5; emitter.next(aiChunk("Building... " + elapsed + "s elapsed\n")); }
+                                }
+                            });
+                            heartbeat2.setDaemon(true);
+                            heartbeat2.start();
+                            Thread buildThread2 = new Thread(() -> {
+                                if (cancelled.get()) return;
+                                try {
+                                    vueProjectBuilder.buildProject(projectPath);
+                                    buildDone2.set(true);
+                                    completed.set(true);
+                                    emitter.next(aiChunk("Build complete! Your Vue app is ready to preview.\n"));
+                                    emitter.complete();
+                                } catch (Exception buildErr) {
+                                    buildDone2.set(true);
+                                    log.warn("VUE_PROJECT build failed (exit-NPE path) for app {} — trying auto-fix", appId);
+                                    emitter.next(aiChunk("\nBuild error detected. Asking AI to fix the code...\n"));
+                                    try {
+                                        String fixPrompt = "The Vite build failed. Fix the broken file(s) and call exit() when done.\n\nBuild error:\n" + buildErr.getMessage();
+                                        service.fixVueProjectCode(appId, fixPrompt);
+                                        emitter.next(aiChunk("Applying fixes and rebuilding...\n"));
+                                        java.util.concurrent.atomic.AtomicBoolean retryDone2 = new java.util.concurrent.atomic.AtomicBoolean(false);
+                                        Thread retryHb2 = new Thread(() -> {
+                                            int e2 = 0;
+                                            while (!retryDone2.get()) {
+                                                try { Thread.sleep(5000); } catch (InterruptedException ie) { break; }
+                                                if (!retryDone2.get()) { e2 += 5; emitter.next(aiChunk("Rebuilding... " + e2 + "s elapsed\n")); }
+                                            }
+                                        });
+                                        retryHb2.setDaemon(true);
+                                        retryHb2.start();
+                                        vueProjectBuilder.buildProject(projectPath);
+                                        retryDone2.set(true);
+                                        completed.set(true);
+                                        emitter.next(aiChunk("Build complete! Your Vue app is ready to preview.\n"));
+                                        emitter.complete();
+                                    } catch (Exception retryErr) {
+                                        log.error("VUE_PROJECT auto-fix failed (exit-NPE path) for app {}", appId, retryErr);
+                                        emitter.error(retryErr);
+                                    }
+                                }
+                            });
+                            buildThread2.setDaemon(true);
+                            buildThreadRef.set(buildThread2);
+                            buildThread2.start();
+                        } else {
+                            emitter.error(err);
+                        }
+                    })
                     .start();
         }, FluxSink.OverflowStrategy.BUFFER);
     }

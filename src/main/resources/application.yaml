@@ -43,8 +43,8 @@ knife4j:
 
 openai:
   api-key: ${OPENAI_API_KEY:your-openai-api-key-here}
-  model: gpt-4.1
-  reasoning-model: gpt-5-mini
-  max-tokens: 32768
+  model: gpt-5.4-mini
+  reasoning-model: gpt-5.4-mini
+  max-tokens: 50000
   log-requests: true
   log-responses: true
