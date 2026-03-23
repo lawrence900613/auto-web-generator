@@ -144,6 +144,10 @@ public class AiCodeGeneratorFacade {
                         emitter.next(JSONUtil.toJsonStr(new ToolExecutedMessage(toolExecution)));
                     })
                     .onCompleteResponse(response -> {
+                        if (response == null) {
+                            emitter.error(new IllegalStateException("LangChain4j returned null completeResponse — stream may have ended abnormally"));
+                            return;
+                        }
                         if (cancelled.get()) return; // client disconnected before build started
                         emitter.next(aiChunk("\n\nBuilding Vue project (npm install + npm run build)...\n"));
                         Thread buildThread = new Thread(() -> {
@@ -181,11 +185,19 @@ public class AiCodeGeneratorFacade {
                                 log.warn("VUE_PROJECT build failed (attempt 1) for app {} — trying auto-fix", appId);
                                 emitter.next(aiChunk("\nBuild error detected. Asking AI to fix the code...\n"));
                                 try {
-                                    String fixPrompt = "The Vite build failed with the error below.\n" +
-                                            "1. Use readFile to inspect the broken file(s).\n" +
-                                            "2. Use modifyFile to fix ONLY the broken section (preferred), or writeFile to replace the whole file.\n" +
+                                    String fixPrompt = "The Vite build failed. Fix the broken file(s) and call exit() when done.\n\n" +
+                                            "RULES you MUST follow when editing Vue templates:\n" +
+                                            "- NEVER use the `function` keyword inside template expressions (:attr=\"...\", v-if, v-bind, etc.). " +
+                                            "Move complex logic into a computed property or method instead.\n" +
+                                            "- NEVER use IIFEs `(() => ...)()` in template expressions.\n" +
+                                            "- NEVER use `async/await` in template expressions.\n" +
+                                            "- If you need a conditional class/style, use an object/array syntax or a computed property.\n" +
+                                            "- Comparison operators `<` and `>` are fine inside quoted attribute values.\n\n" +
+                                            "Steps:\n" +
+                                            "1. Use readFile to inspect the file named in the error.\n" +
+                                            "2. Use modifyFile to fix ONLY the broken lines (preferred), or writeFile to replace the whole file.\n" +
                                             "3. Call exit() when all fixes are applied.\n\n" +
-                                            buildErr.getMessage();
+                                            "Build error:\n" + buildErr.getMessage();
                                     service.fixVueProjectCode(appId, fixPrompt);
                                     emitter.next(aiChunk("Applying fixes and rebuilding...\n"));
                                     // New heartbeat for the retry build

@@ -103,12 +103,20 @@ public class VueProjectBuilder {
         try {
             String content = Files.readString(file, StandardCharsets.UTF_8);
             String fixed = content;
-//            for (String tag : VOID_TAGS) {
-//                // Remove </tag> and </tag > (with optional whitespace)
-//                fixed = fixed.replaceAll("</" + tag + "\\s*>", "");
-//            }
+
+            // Replace `function` keyword inside template binding expressions with a stub
+            // that produces a clear compile error pointing to the right line.
+            // Pattern: :attr="...function(...)" or v-bind:attr="...function(...)"
+            // We replace `function(` → `INVALID_FUNCTION_IN_TEMPLATE(` so Vite reports
+            // the exact line and the AI auto-fix knows what to look for.
+            fixed = fixed.replaceAll(
+                    "(?<=[\"'])function\\s*\\(",
+                    "INVALID_FUNCTION_IN_TEMPLATE("
+            );
+
             if (!fixed.equals(content)) {
-                log.info("VueProjectBuilder: removed void-element close tags in {}", file.getFileName());
+                log.warn("VueProjectBuilder: replaced illegal `function` keyword in template expressions in {}",
+                        file.getFileName());
                 Files.writeString(file, fixed, StandardCharsets.UTF_8);
             }
         } catch (Exception e) {
