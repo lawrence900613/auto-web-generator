@@ -32,6 +32,12 @@ Auto Web Generator is a full-stack platform for turning prompts into web apps. I
 This project uses GPT-5-mini for AI code generation workflows.
 
 > ⚠️ **Note:** Code generation speed may vary depending on prompt complexity. Live preview and deployment behavior also depend on your runtime setup and timeout limits (for example, proxy, container, or platform request timeouts).
+> <img width="2541" height="1211" alt="image" src="https://github.com/user-attachments/assets/4c60eeab-e1e7-4d5e-bfb3-d39fda878fe8" />
+
+> <img width="2517" height="1272" alt="image" src="https://github.com/user-attachments/assets/1adc45d7-6cd6-4d57-aab7-b84892fe606c" />
+
+🚀 **Live Demo:** Try the AI Web Generator [here](https://auto-web-generator-frontend-dxhea5bzdvbfbwbj.canadacentral-01.azurewebsites.net/).
+
 
 Core implementation:
 - Backend API and app lifecycle: [src/main/java/com/example/autowebgenerator/controller/AppController.java](src/main/java/com/example/autowebgenerator/controller/AppController.java)
